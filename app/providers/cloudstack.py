@@ -209,6 +209,38 @@ class CloudStackProvider(BaseProvider):
 
     def list_regions(self) -> List[Dict[str, Any]]:
         result = self._make_request("listZones")
+        zones_data = result.get("listzonesresponse", {}).get("zone", [])
+        zones = []
+        for zone in zones_data:
+            zones.append({
+                "id": zone["id"],
+                "name": zone.get("name"),
+            })
+        return zones
+
+    def test_connection(self) -> bool:
+        """Test connection to CloudStack API."""
+        try:
+            logger.info("cloudstack_test_connection", api_url=self.api_url)
+            result = self._make_request("listZones")
+            success = "listzonesresponse" in result
+            if success:
+                logger.info("cloudstack_connection_ok", zones_count=len(result.get("listzonesresponse", {}).get("zone", [])))
+            return success
+        except Exception as e:
+            logger.error("cloudstack_connection_failed", error=str(e))
+            return False
+
+    def stop_vm(self, vm_id: str, region: Optional[str] = None) -> Dict[str, Any]:
+        try:
+            self._make_request("stopVirtualMachine", {"id": vm_id})
+            return self.get_vm(vm_id, region)
+        except Exception as e:
+            logger.error("cloudstack_stop_vm_error", vm_id=vm_id, error=str(e))
+            raise RuntimeError(f"CloudStack stop_vm failed: {e}") from e
+
+    def list_regions(self) -> List[Dict[str, Any]]:
+        result = self._make_request("listZones")
         zones = result.get("listzonesresponse", {}).get("zone", [])
         return [
             {
