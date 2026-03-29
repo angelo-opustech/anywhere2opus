@@ -19,9 +19,19 @@ class CloudStackConfig(BaseModel):
     @classmethod
     def validate_api_url(cls, v):
         if isinstance(v, str):
-            # Remove trailing slash for consistency
             v = v.rstrip("/")
         return v
+
+
+class CloudStackAccountInfo(BaseModel):
+    """Account and domain information from CloudStack."""
+    username: Optional[str] = Field(None, description="Username")
+    account: Optional[str] = Field(None, description="Account name")
+    domain: Optional[str] = Field(None, description="Domain name")
+    domain_id: Optional[str] = Field(None, description="Domain ID")
+    account_type: Optional[int] = Field(None, description="Account type (0=user, 1=admin, 2=domain-admin)")
+    email: Optional[str] = Field(None, description="User email")
+    state: Optional[str] = Field(None, description="Account state")
 
 
 class CloudStackTestResult(BaseModel):
@@ -30,8 +40,37 @@ class CloudStackTestResult(BaseModel):
     connected: bool = Field(..., description="Whether connection was successful")
     api_url: str = Field(..., description="API URL tested")
     zones_found: Optional[int] = Field(None, description="Number of zones found")
+    account_info: Optional[CloudStackAccountInfo] = Field(None, description="Account and domain details")
     error_message: Optional[str] = Field(None, description="Error message if connection failed")
     details: Optional[Dict[str, Any]] = Field(None, description="Additional details")
+
+
+class CloudStackSaveRequest(BaseModel):
+    """Request to save CloudStack credentials securely."""
+    api_url: HttpUrl = Field(..., description="CloudStack API URL")
+    api_key: str = Field(..., min_length=1, description="CloudStack API Key")
+    secret_key: str = Field(..., min_length=1, description="CloudStack Secret Key")
+    name: Optional[str] = Field(None, description="Friendly name (auto-generated from domain/account if omitted)")
+    zone_id: Optional[str] = Field(None, description="Default zone ID (optional)")
+    verify_ssl: bool = Field(True, description="Verify SSL certificate")
+
+    @field_validator("api_url", mode="before")
+    @classmethod
+    def validate_api_url(cls, v):
+        if isinstance(v, str):
+            v = v.rstrip("/")
+        return v
+
+
+class CloudStackSavedProvider(BaseModel):
+    """Saved CloudStack provider (credentials are masked)."""
+    id: int
+    name: str
+    api_url: str
+    account: Optional[str] = None
+    domain: Optional[str] = None
+    is_active: bool
+    created_at: str
 
 
 class CloudStackZone(BaseModel):
@@ -154,3 +193,4 @@ class ProviderTestResult(BaseModel):
     timestamp: str = Field(..., description="Timestamp of test")
     message: str = Field(..., description="Status message")
     details: Optional[Dict[str, Any]] = Field(None, description="Additional details")
+

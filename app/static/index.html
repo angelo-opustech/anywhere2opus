@@ -3,7 +3,367 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CloudStack - Teste de Conex??o | anywhere2opus</title>
+    <title>CloudStack - Configura????o | anywhere2opus</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 30px 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 540px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 36px 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 26px; margin-bottom: 6px; }
+        .header p { font-size: 13px; opacity: 0.9; }
+
+        .content { padding: 30px; }
+
+        .form-group { margin-bottom: 18px; }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #333;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        input[type="text"], input[type="password"], input[type="url"] {
+            width: 100%;
+            padding: 11px 14px;
+            border: 2px solid #e1e4e8;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+
+        .hint { font-size: 11px; color: #888; margin-top: 4px; }
+
+        .button-group { display: flex; gap: 10px; margin-top: 24px; }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .btn-test {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-test:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(102,126,234,0.35); }
+
+        .btn-save {
+            background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+            color: white;
+            display: none;
+        }
+        .btn-save.show { display: block; }
+        .btn-save:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(40,167,69,0.35); }
+
+        .btn-clear { background: #f1f3f5; color: #555; flex: 0 0 auto; padding: 12px 18px; }
+        .btn-clear:hover { background: #e1e4e8; }
+
+        /* Result box */
+        .result {
+            margin-top: 24px;
+            padding: 18px;
+            border-radius: 8px;
+            display: none;
+        }
+        .result.show { display: block; animation: slideIn 0.25s ease; }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .result.success { background: #d4edda; border: 2px solid #28a745; color: #155724; }
+        .result.error   { background: #f8d7da; border: 2px solid #dc3545; color: #721c24; }
+        .result.loading { background: #e7f3ff; border: 2px solid #2196F3; color: #0c5aa0; text-align: center; }
+        .result.saved   { background: #d1ecf1; border: 2px solid #17a2b8; color: #0c5460; }
+
+        .result-title { font-weight: 700; margin-bottom: 10px; font-size: 15px; }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .info-item {
+            background: rgba(255,255,255,0.55);
+            border-radius: 6px;
+            padding: 10px 12px;
+        }
+        .info-item .label { font-size: 10px; font-weight: 700; text-transform: uppercase; opacity: 0.7; }
+        .info-item .value { font-size: 14px; font-weight: 600; margin-top: 2px; word-break: break-all; }
+
+        /* Saved providers list */
+        .providers-section { margin-top: 28px; border-top: 1px solid #e1e4e8; padding-top: 24px; }
+        .providers-title { font-size: 13px; font-weight: 700; color: #444; margin-bottom: 12px; }
+        .provider-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 14px;
+            border: 1px solid #e1e4e8;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .provider-name { font-weight: 600; color: #333; }
+        .provider-meta { color: #888; font-size: 11px; margin-top: 2px; }
+        .badge { background: #28a745; color: white; font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+
+        .footer {
+            text-align: center;
+            padding: 18px;
+            background: #f8f9fa;
+            border-top: 1px solid #e1e4e8;
+            font-size: 11px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>???? CloudStack</h1>
+        <p>Configura????o e Teste de Conex??o</p>
+    </div>
+
+    <div class="content">
+        <form id="testForm">
+            <div class="form-group">
+                <label for="apiUrl">URL da API CloudStack</label>
+                <input type="url" id="apiUrl" name="apiUrl"
+                    placeholder="https://seu-cloudstack.com/client/api"
+                    value="https://opus1.cloud/client/api" required>
+            </div>
+
+            <div class="form-group">
+                <label for="apiKey">API Key</label>
+                <input type="password" id="apiKey" name="apiKey" placeholder="Cole sua API Key" required>
+                <div class="hint">Chave de acesso do CloudStack</div>
+            </div>
+
+            <div class="form-group">
+                <label for="secretKey">Secret Key</label>
+                <input type="password" id="secretKey" name="secretKey" placeholder="Cole sua Secret Key" required>
+                <div class="hint">Chave secreta do CloudStack</div>
+            </div>
+
+            <div class="button-group">
+                <button type="submit" class="btn-test" id="testBtn">???? Testar Conex??o</button>
+                <button type="button" class="btn-clear" id="clearBtn">???????</button>
+            </div>
+        </form>
+
+        <button type="button" class="btn-save" id="saveBtn">???? Salvar Credenciais</button>
+
+        <div id="result" class="result"></div>
+
+        <!-- Saved providers list -->
+        <div class="providers-section" id="providersSection" style="display:none">
+            <div class="providers-title">?????? Provedores Salvos</div>
+            <div id="providersList"></div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>anywhere2opus Cloud Migration API &middot; ?? 2026 Opus Technology</p>
+    </div>
+</div>
+
+<script>
+    const form       = document.getElementById('testForm');
+    const resultDiv  = document.getElementById('result');
+    const testBtn    = document.getElementById('testBtn');
+    const saveBtn    = document.getElementById('saveBtn');
+    const clearBtn   = document.getElementById('clearBtn');
+
+    let lastTestData = null; // stores last successful test result
+
+    // ?????? Test connection ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        saveBtn.classList.remove('show');
+        lastTestData = null;
+
+        const apiUrl    = document.getElementById('apiUrl').value.trim();
+        const apiKey    = document.getElementById('apiKey').value.trim();
+        const secretKey = document.getElementById('secretKey').value.trim();
+
+        if (!apiUrl || !apiKey || !secretKey) {
+            showResult('error', '??? Campos obrigat??rios', 'Preencha todos os campos.');
+            return;
+        }
+
+        setLoading(true);
+        showResult('loading', '', '??? Conectando ao CloudStack...');
+
+        try {
+            const resp = await fetch('/api/v1/configuration/cloudstack/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_url: apiUrl, api_key: apiKey, secret_key: secretKey })
+            });
+            const data = await resp.json();
+
+            if (resp.ok && data.connected) {
+                lastTestData = { apiUrl, apiKey, secretKey, data };
+                showSuccessResult(data);
+                saveBtn.classList.add('show');
+            } else {
+                showResult('error', '??? Falha na conex??o', data.error_message || 'N??o foi poss??vel conectar.');
+            }
+        } catch (err) {
+            showResult('error', '??? Erro', `Erro na requisi????o: ${err.message}`);
+        }
+
+        setLoading(false);
+    });
+
+    // ?????? Save credentials ???????????????????????????????????????????????????????????????????????????????????????????????????????????????
+    saveBtn.addEventListener('click', async () => {
+        if (!lastTestData) return;
+
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '??? Salvando...';
+
+        try {
+            const resp = await fetch('/api/v1/configuration/cloudstack/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    api_url:    lastTestData.apiUrl,
+                    api_key:    lastTestData.apiKey,
+                    secret_key: lastTestData.secretKey,
+                })
+            });
+            const saved = await resp.json();
+
+            if (resp.ok) {
+                showResult('saved',
+                    '???? Credenciais salvas!',
+                    `<b>${saved.name}</b><br>Dom??nio: <b>${saved.domain || '-'}</b> &nbsp;|&nbsp; Conta: <b>${saved.account || '-'}</b>`
+                );
+                saveBtn.classList.remove('show');
+                loadProviders();
+            } else {
+                showResult('error', '??? Erro ao salvar', saved.detail || 'Falha ao salvar.');
+            }
+        } catch (err) {
+            showResult('error', '??? Erro', err.message);
+        }
+
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '???? Salvar Credenciais';
+    });
+
+    // ?????? Clear form ?????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
+    clearBtn.addEventListener('click', () => {
+        form.reset();
+        document.getElementById('apiUrl').value = 'https://opus1.cloud/client/api';
+        resultDiv.className = 'result';
+        resultDiv.innerHTML = '';
+        saveBtn.classList.remove('show');
+        lastTestData = null;
+    });
+
+    // ?????? Helpers ??????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
+    function setLoading(on) {
+        testBtn.disabled = on;
+        testBtn.innerHTML = on ? '??? Testando...' : '???? Testar Conex??o';
+    }
+
+    function showResult(type, title, msg) {
+        resultDiv.className = `result ${type} show`;
+        resultDiv.innerHTML = title
+            ? `<div class="result-title">${title}</div><div>${msg}</div>`
+            : `<div>${msg}</div>`;
+    }
+
+    function showSuccessResult(data) {
+        const ai = data.account_info || {};
+        const zones = data.zones_found ?? 0;
+
+        let html = `<div class="result-title">??? Conectado com sucesso!</div>`;
+        html += `<div class="info-grid">`;
+        html += infoItem('Dom??nio',   ai.domain   || '???');
+        html += infoItem('Conta',     ai.account  || '???');
+        html += infoItem('Usu??rio',   ai.username || '???');
+        html += infoItem('Zonas',     zones + ' encontrada(s)');
+        if (ai.email) html += infoItem('E-mail', ai.email);
+        if (ai.state) html += infoItem('Status', ai.state);
+        html += `</div>`;
+
+        resultDiv.className = 'result success show';
+        resultDiv.innerHTML = html;
+    }
+
+    function infoItem(label, value) {
+        return `<div class="info-item"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+    }
+
+    // ?????? Load saved providers ???????????????????????????????????????????????????????????????????????????????????????????????????
+    async function loadProviders() {
+        try {
+            const resp = await fetch('/api/v1/configuration/cloudstack/providers');
+            if (!resp.ok) return;
+            const list = await resp.json();
+
+            const section = document.getElementById('providersSection');
+            const container = document.getElementById('providersList');
+
+            if (list.length === 0) { section.style.display = 'none'; return; }
+
+            section.style.display = 'block';
+            container.innerHTML = list.map(p => `
+                <div class="provider-item">
+                    <div>
+                        <div class="provider-name">${p.name}</div>
+                        <div class="provider-meta">${p.domain || ''}/${p.account || ''} &middot; ${p.api_url}</div>
+                    </div>
+                    <span class="badge">ativo</span>
+                </div>
+            `).join('');
+        } catch (_) {}
+    }
+
+    // Load on page open
+    loadProviders();
+</script>
+</body>
+</html>
+
     <style>
         * {
             margin: 0;

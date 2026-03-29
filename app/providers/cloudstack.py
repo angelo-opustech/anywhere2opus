@@ -199,6 +199,30 @@ class CloudStackProvider(BaseProvider):
             logger.error("cloudstack_start_vm_error", vm_id=vm_id, error=str(e))
             raise RuntimeError(f"CloudStack start_vm failed: {e}") from e
 
+    def get_account_info(self) -> Dict[str, Any]:
+        """Return account and domain info associated with the current API key.
+
+        Uses listUsers with listall=false to retrieve only the user that owns
+        the API key, then returns account/domain metadata.
+        """
+        try:
+            result = self._make_request("listUsers", {"listall": "false"})
+            users = result.get("listusersresponse", {}).get("user", [])
+            if users:
+                user = users[0]
+                return {
+                    "username": user.get("username"),
+                    "account": user.get("account"),
+                    "domain": user.get("domain"),
+                    "domain_id": user.get("domainid"),
+                    "account_type": user.get("accounttype"),
+                    "email": user.get("email", ""),
+                    "state": user.get("state"),
+                }
+        except Exception as e:
+            logger.warning("cloudstack_get_account_info_failed", error=str(e))
+        return {}
+
     def stop_vm(self, vm_id: str, region: Optional[str] = None) -> Dict[str, Any]:
         try:
             self._make_request("stopVirtualMachine", {"id": vm_id})
@@ -343,3 +367,4 @@ class CloudStackProvider(BaseProvider):
             logger.info("cloudstack_register_template", name=name, id=templates[0]["id"])
             return templates[0]
         return {}
+
