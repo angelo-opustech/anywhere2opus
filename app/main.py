@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import create_tables
@@ -33,7 +35,7 @@ app = FastAPI(
     title="anywhere2opus",
     version="1.0.0",
     description=(
-        "Cloud Migration API — connect to AWS, GCP, Azure, OCI, and CloudStack (Opus) "
+        "Cloud Migration API ??? connect to AWS, GCP, Azure, OCI, and CloudStack (Opus) "
         "to discover, manage, and migrate cloud resources between providers."
     ),
     contact={
@@ -66,6 +68,22 @@ app.include_router(resources_router, prefix=API_PREFIX)
 app.include_router(migrations_router, prefix=API_PREFIX)
 app.include_router(configuration_router, prefix=API_PREFIX)
 
+# ---------------------------------------------------------------------------
+# Static Files
+# ---------------------------------------------------------------------------
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+
+@app.get("/", tags=["Web"], summary="CloudStack Configuration Interface")
+async def root():
+    """Serve the CloudStack configuration web interface"""
+    static_file = Path(__file__).parent / "static" / "index.html"
+    if static_file.exists():
+        return FileResponse(str(static_file), media_type="text/html")
+    return {"message": "Configuration interface not available"}
+
 
 # ---------------------------------------------------------------------------
 # Health check
@@ -78,16 +96,3 @@ async def health_check():
         "env": settings.app_env,
         "timestamp": datetime.utcnow().isoformat() + "Z",
     }
-
-
-@app.get("/", tags=["Health"], include_in_schema=False)
-async def root():
-    return JSONResponse(
-        content={
-            "app": "anywhere2opus",
-            "version": "1.0.0",
-            "docs": "/docs",
-            "redoc": "/redoc",
-            "health": "/health",
-        }
-    )
