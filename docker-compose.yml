@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: anywhere2opus_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: anywhere2opus
+      POSTGRES_USER: anywhere2opus
+      POSTGRES_PASSWORD: anywhere2opus
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anywhere2opus -d anywhere2opus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - anywhere2opus_net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: anywhere2opus_app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://anywhere2opus:anywhere2opus@postgres:5432/anywhere2opus
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+    networks:
+      - anywhere2opus_net
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+volumes:
+  postgres_data:
+
+networks:
+  anywhere2opus_net:
+    driver: bridge

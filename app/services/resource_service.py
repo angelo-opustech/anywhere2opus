@@ -1,0 +1,197 @@
+import json
+from typing import List, Optional, Tuple
+
+import structlog
+from sqlalchemy.orm import Session
+
+from app.models.provider import CloudProvider
+from app.models.resource import CloudResource, ResourceType, ResourceStatus
+from app.services.provider_service import ProviderService
+
+logger = structlog.get_logger(__name__)
+
+_RESOURCE_TYPE_MAP = {
+    "vms": ResourceType.VM,
+    "storage": ResourceType.STORAGE,
+    "networks": ResourceType.NETWORK,
+}
+
+
+class ResourceService:
+    """Service for discovering and syncing cloud resources into the database."""
+
+    def __init__(self, db: Session):
+        self.db = db
+        self._provider_service = ProviderService(db)
+
+    # ------------------------------------------------------------------
+    # Read operations
+    # ------------------------------------------------------------------
+
+    def list_resources(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        provider_id: Optional[int] = None,
+        resource_type: Optional[ResourceType] = None,
+        status: Optional[ResourceStatus] = None,
+    ) -> Tuple[List[CloudResource], int]:
+        query = self.db.query(CloudResource)
+        if provider_id is not None:
+            query = query.filter(CloudResource.provider_id == provider_id)
+        if resource_type is not None:
+            query = query.filter(CloudResource.resource_type == resource_type)
+        if status is not None:
+            query = query.filter(CloudResource.status == status)
+        total = query.count()
+        resources = query.offset(skip).limit(limit).all()
+        return resources, total
+
+    def get_resource(self, resource_id: int) -> Optional[CloudResource]:
+        return (
+            self.db.query(CloudResource)
+            .filter(CloudResource.id == resource_id)
+            .first()
+        )
+
+    def get_resource_or_raise(self, resource_id: int) -> CloudResource:
+        resource = self.get_resource(resource_id)
+        if resource is None:
+            raise ValueError(f"Resource {resource_id} not found")
+        return resource
+
+    def list_resources_by_provider(
+        self, provider_id: int, skip: int = 0, limit: int = 100
+    ) -> Tuple[List[CloudResource], int]:
+        return self.list_resources(skip=skip, limit=limit, provider_id=provider_id)
+
+    # ------------------------------------------------------------------
+    # Discovery / sync
+    # ------------------------------------------------------------------
+
+    def sync_provider_resources(
+        self, provider_id: int, region: Optional[str] = None
+    ) -> dict:
+        """Discover all resource types from the given provider and upsert
+        them into the database.
+
+        Returns a summary dict with counts per resource type.
+        """
+        provider: CloudProvider = self._provider_service.get_provider_or_raise(provider_id)
+        client = self._provider_service.get_provider_client(provider)
+
+        summary: dict = {
+            "provider_id": provider_id,
+            "created": 0,
+            "updated": 0,
+            "errors": [],
+        }
+
+        # VMs
+        try:
+            vms = client.list_vms(region=region)
+            vm_counts = self._upsert_resources(
+                provider_id=provider_id,
+                resource_type=ResourceType.VM,
+                items=vms,
+            )
+            summary["vms_created"] = vm_counts["created"]
+            summary["vms_updated"] = vm_counts["updated"]
+            summary["created"] += vm_counts["created"]
+            summary["updated"] += vm_counts["updated"]
+        except Exception as e:
+            logger.error("sync_vms_error", provider_id=provider_id, error=str(e))
+            summary["errors"].append({"type": "VM", "error": str(e)})
+
+        # Storage
+        try:
+            storages = client.list_storage(region=region)
+            storage_counts = self._upsert_resources(
+                provider_id=provider_id,
+                resource_type=ResourceType.STORAGE,
+                items=storages,
+            )
+            summary["storage_created"] = storage_counts["created"]
+            summary["storage_updated"] = storage_counts["updated"]
+            summary["created"] += storage_counts["created"]
+            summary["updated"] += storage_counts["updated"]
+        except Exception as e:
+            logger.error("sync_storage_error", provider_id=provider_id, error=str(e))
+            summary["errors"].append({"type": "STORAGE", "error": str(e)})
+
+        # Networks
+        try:
+            networks = client.list_networks(region=region)
+            network_counts = self._upsert_resources(
+                provider_id=provider_id,
+                resource_type=ResourceType.NETWORK,
+                items=networks,
+            )
+            summary["networks_created"] = network_counts["created"]
+            summary["networks_updated"] = network_counts["updated"]
+            summary["created"] += network_counts["created"]
+            summary["updated"] += network_counts["updated"]
+        except Exception as e:
+            logger.error("sync_networks_error", provider_id=provider_id, error=str(e))
+            summary["errors"].append({"type": "NETWORK", "error": str(e)})
+
+        logger.info("sync_completed", **summary)
+        return summary
+
+    def _upsert_resources(
+        self,
+        provider_id: int,
+        resource_type: ResourceType,
+        items: List[dict],
+    ) -> dict:
+        """Insert or update cloud resources in the database.
+
+        Returns counts of created and updated records.
+        """
+        created = 0
+        updated = 0
+
+        for item in items:
+            external_id = str(item.get("id", ""))
+            if not external_id:
+                continue
+
+            specs = item.get("specs")
+            specs_json = json.dumps(specs) if specs is not None else None
+            status_raw = (item.get("status") or "active").upper()
+            try:
+                status = ResourceStatus[status_raw]
+            except KeyError:
+                status = ResourceStatus.ACTIVE
+
+            existing: Optional[CloudResource] = (
+                self.db.query(CloudResource)
+                .filter(
+                    CloudResource.provider_id == provider_id,
+                    CloudResource.external_id == external_id,
+                    CloudResource.resource_type == resource_type,
+                )
+                .first()
+            )
+
+            if existing:
+                existing.name = item.get("name", existing.name) or existing.name
+                existing.region = item.get("region") or existing.region
+                existing.specs_json = specs_json if specs_json is not None else existing.specs_json
+                existing.status = status
+                updated += 1
+            else:
+                resource = CloudResource(
+                    provider_id=provider_id,
+                    resource_type=resource_type,
+                    name=item.get("name", external_id),
+                    region=item.get("region"),
+                    external_id=external_id,
+                    status=status,
+                    specs_json=specs_json,
+                )
+                self.db.add(resource)
+                created += 1
+
+        self.db.commit()
+        return {"created": created, "updated": updated}
