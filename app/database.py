@@ -50,9 +50,10 @@ def get_db() -> Generator[Session, None, None]:
 
 def create_tables() -> None:
     """Create all tables in the database. Used for initial setup or testing."""
-    # Extend existing PostgreSQL enum types with new values added to the
-    # Python model.  ALTER TYPE ... ADD VALUE IF NOT EXISTS is idempotent and
-    # safe to run on every startup.
+    # 1. Create brand-new tables (clients, etc.) before we add FKs to them.
+    Base.metadata.create_all(bind=engine)
+
+    # 2. Extend existing PostgreSQL enum types with new values.
     _new_resource_type_values = ["KUBERNETES", "FILESTORE", "STORAGE_FLASH", "STORAGE_SAS"]
     with engine.connect() as conn:
         for val in _new_resource_type_values:
@@ -69,7 +70,18 @@ def create_tables() -> None:
                     value=val,
                     reason=str(exc),
                 )
-    Base.metadata.create_all(bind=engine)
+
+        # 3. Add client_id FK column to cloud_providers if it doesn't exist yet.
+        try:
+            conn.execute(text(
+                "ALTER TABLE cloud_providers "
+                "ADD COLUMN IF NOT EXISTS client_id INTEGER "
+                "REFERENCES clients(id) ON DELETE CASCADE"
+            ))
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            logger.warning("db_add_client_id_skipped", reason=str(exc))
 
 
 def drop_tables() -> None:

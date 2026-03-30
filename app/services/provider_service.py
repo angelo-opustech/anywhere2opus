@@ -28,11 +28,14 @@ class ProviderService:
     # ------------------------------------------------------------------
 
     def list_providers(
-        self, skip: int = 0, limit: int = 100, active_only: bool = False
+        self, skip: int = 0, limit: int = 100, active_only: bool = False,
+        client_id: Optional[int] = None,
     ) -> tuple[List[CloudProvider], int]:
         query = self.db.query(CloudProvider)
         if active_only:
             query = query.filter(CloudProvider.is_active == True)  # noqa: E712
+        if client_id is not None:
+            query = query.filter(CloudProvider.client_id == client_id)
         total = query.count()
         providers = query.offset(skip).limit(limit).all()
         return providers, total
@@ -56,6 +59,7 @@ class ProviderService:
             type=data.type,
             is_active=data.is_active,
             credentials_json=data.credentials_to_json(),
+            client_id=data.client_id,
         )
         self.db.add(provider)
         self.db.commit()

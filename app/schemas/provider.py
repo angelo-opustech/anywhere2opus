@@ -11,6 +11,7 @@ class CloudProviderBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Provider display name")
     type: ProviderType = Field(..., description="Cloud provider type")
     is_active: bool = Field(True, description="Whether this provider is active")
+    client_id: Optional[int] = Field(None, description="Client this provider belongs to")
 
 
 class CloudProviderCreate(CloudProviderBase):
@@ -45,6 +46,7 @@ class CloudProviderUpdate(BaseModel):
 
 class CloudProviderRead(CloudProviderBase):
     id: int
+    client_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 

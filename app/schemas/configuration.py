@@ -80,6 +80,7 @@ class CloudStackSaveRequest(BaseModel):
     name: Optional[str] = Field(None, description="Friendly name (auto-generated from domain/account if omitted)")
     zone_id: Optional[str] = Field(None, description="Default zone ID (optional)")
     verify_ssl: bool = Field(True, description="Verify SSL certificate")
+    client_id: Optional[int] = Field(None, description="Client this provider belongs to")
 
     @field_validator("api_url", mode="before")
     @classmethod
@@ -139,6 +140,7 @@ class AWSAccountInfo(BaseModel):
 
 class AWSSaveRequest(AWSConfig):
     name: Optional[str] = Field(None, description="Friendly name for the AWS provider")
+    client_id: Optional[int] = Field(None, description="Client this provider belongs to")
 
 
 class AWSTestResult(BaseModel):
@@ -194,7 +196,7 @@ class GCPTestResult(BaseModel):
 
 class GCPSaveRequest(GCPConfig):
     name: Optional[str] = Field(None, description="Friendly name for the GCP provider")
-
+    client_id: Optional[int] = Field(None, description="Client this provider belongs to")
 
 class GCPSavedProvider(BaseModel):
     id: int
@@ -239,6 +241,7 @@ class AzureTestResult(BaseModel):
 
 class AzureSaveRequest(AzureConfig):
     name: Optional[str] = Field(None, description="Friendly name for the Azure provider")
+    tenant_client_id: Optional[int] = Field(None, description="Client this provider belongs to")
 
 
 class AzureSavedProvider(BaseModel):
@@ -311,6 +314,7 @@ class OCITestResult(BaseModel):
 
 class OCISaveRequest(OCIConfig):
     name: Optional[str] = Field(None, description="Friendly name for the OCI provider")
+    client_id: Optional[int] = Field(None, description="Client this provider belongs to")
 
 
 class OCISavedProvider(BaseModel):

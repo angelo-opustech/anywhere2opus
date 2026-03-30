@@ -124,6 +124,8 @@ def save_gcp_credentials(request: GCPSaveRequest, db: Session = Depends(get_db))
     if existing:
         existing.credentials_json = encrypted
         existing.is_active = True
+        if request.client_id is not None:
+            existing.client_id = request.client_id
         db_provider = existing
     else:
         db_provider = CloudProvider(
@@ -131,6 +133,7 @@ def save_gcp_credentials(request: GCPSaveRequest, db: Session = Depends(get_db))
             type=ProviderType.GCP,
             credentials_json=encrypted,
             is_active=True,
+            client_id=request.client_id,
         )
         db.add(db_provider)
 
@@ -332,6 +335,8 @@ def save_azure_credentials(request: AzureSaveRequest, db: Session = Depends(get_
     if existing:
         existing.credentials_json = encrypted
         existing.is_active = True
+        if request.tenant_client_id is not None:
+            existing.client_id = request.tenant_client_id
         db_provider = existing
     else:
         db_provider = CloudProvider(
@@ -339,6 +344,7 @@ def save_azure_credentials(request: AzureSaveRequest, db: Session = Depends(get_
             type=ProviderType.AZURE,
             credentials_json=encrypted,
             is_active=True,
+            client_id=request.tenant_client_id,
         )
         db.add(db_provider)
 
@@ -544,6 +550,8 @@ def save_oci_credentials(request: OCISaveRequest, db: Session = Depends(get_db))
     if existing:
         existing.credentials_json = encrypted
         existing.is_active = True
+        if request.client_id is not None:
+            existing.client_id = request.client_id
         db_provider = existing
     else:
         db_provider = CloudProvider(
@@ -551,6 +559,7 @@ def save_oci_credentials(request: OCISaveRequest, db: Session = Depends(get_db))
             type=ProviderType.OCI,
             credentials_json=encrypted,
             is_active=True,
+            client_id=request.client_id,
         )
         db.add(db_provider)
 

@@ -15,6 +15,7 @@ from app.api.routes.resources import router as resources_router
 from app.api.routes.migrations import router as migrations_router
 from app.api.routes.configuration import router as configuration_router
 from app.api.routes.configuration_new_providers import router as configuration_new_providers_router
+from app.api.routes.clients import router as clients_router
 
 logger = structlog.get_logger(__name__)
 
@@ -71,11 +72,13 @@ app.include_router(resources_router, prefix=API_PREFIX)
 app.include_router(migrations_router, prefix=API_PREFIX)
 app.include_router(configuration_router, prefix=API_PREFIX)
 app.include_router(configuration_new_providers_router, prefix=API_PREFIX)
+app.include_router(clients_router, prefix=API_PREFIX)
 app.include_router(providers_router, prefix=PUBLISHED_API_PREFIX)
 app.include_router(resources_router, prefix=PUBLISHED_API_PREFIX)
 app.include_router(migrations_router, prefix=PUBLISHED_API_PREFIX)
 app.include_router(configuration_router, prefix=PUBLISHED_API_PREFIX)
 app.include_router(configuration_new_providers_router, prefix=PUBLISHED_API_PREFIX)
+app.include_router(clients_router, prefix=PUBLISHED_API_PREFIX)
 
 # ---------------------------------------------------------------------------
 # Static Files

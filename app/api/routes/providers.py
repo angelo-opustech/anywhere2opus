@@ -21,9 +21,10 @@ def list_providers(
     skip: int = Query(0, ge=0, description="Pagination offset"),
     limit: int = Query(50, ge=1, le=200, description="Max results per page"),
     active_only: bool = Query(False, description="Return only active providers"),
+    client_id: Optional[int] = Query(None, description="Filter by client ID"),
     svc: ProviderService = Depends(get_provider_service),
 ):
-    providers, total = svc.list_providers(skip=skip, limit=limit, active_only=active_only)
+    providers, total = svc.list_providers(skip=skip, limit=limit, active_only=active_only, client_id=client_id)
     return CloudProviderList(
         total=total,
         items=[CloudProviderRead.model_validate(p) for p in providers],

@@ -8,25 +8,23 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background:
-                radial-gradient(circle at top left, rgba(255,255,255,0.16), transparent 28%),
-                linear-gradient(135deg, #0d1b2a 0%, #1b263b 45%, #415a77 100%);
+            background: #f1f5f9;
             min-height: 100vh;
+            height: 100vh;
             display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding: 30px 20px;
+            overflow: hidden;
         }
         .container {
             width: 100%;
-            max-width: 620px;
             background: #fff;
-            border-radius: 18px;
-            box-shadow: 0 28px 70px rgba(0, 0, 0, 0.35);
-            overflow: hidden;
-            transition: max-width 0.3s ease;
+            border-radius: 0;
+            box-shadow: none;
+            overflow: visible;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
-        .container.wide { max-width: 1220px; }
+        .container.wide { max-width: none; }
 
         .header {
             background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 55%, #0ea5e9 100%);
@@ -471,8 +469,10 @@
             .modal-content { max-width: 95vw; width: 100%; }
         }
         @media (max-width: 960px) {
-            body { padding: 18px 10px; }
-            .container, .container.wide { max-width: 100%; }
+            body { overflow: auto; height: auto; flex-direction: column; }
+            .sidebar { width: 100%; height: auto; min-height: unset; flex-direction: row; flex-wrap: wrap; padding-bottom: 8px; }
+            .sidebar-brand { border-bottom: none; border-right: 1px solid rgba(255,255,255,0.1); }
+            .main-area { max-height: unset; }
             .header-top, .provider-list-header, .provider-card-header, .res-main-header { flex-direction: column; align-items: stretch; }
             .form-grid { grid-template-columns: 1fr; }
             .res-explorer.open { flex-direction: column; }
@@ -488,60 +488,286 @@
             .step-image { min-height: 250px; }
             .modal-header h2 { font-size: 20px; }
         }
+
+        /* ── Sidebar App Shell ─────────────────────────────────────────────────── */
+        .sidebar {
+            width: 240px;
+            min-width: 240px;
+            height: 100vh;
+            background: linear-gradient(180deg, #0f172a 0%, #1b3a5c 100%);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 18px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.10);
+        }
+        .brand-icon {
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 900;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .brand-text {
+            font-size: 13px;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+        }
+        .sidebar-section-label {
+            font-size: 10px;
+            font-weight: 800;
+            color: rgba(255,255,255,0.38);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 14px 14px 5px;
+        }
+        .client-selector {
+            padding: 0 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .client-select {
+            width: 100%;
+            padding: 9px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.18);
+            background: rgba(255,255,255,0.07);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .client-select option { background: #1e3a5f; color: #fff; }
+        .btn-new-client {
+            width: 100%;
+            padding: 7px 10px;
+            background: rgba(37,99,235,0.20);
+            border: 1px solid rgba(37,99,235,0.45);
+            border-radius: 8px;
+            color: #93c5fd;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s ease;
+            font-family: inherit;
+        }
+        .btn-new-client:hover { background: rgba(37,99,235,0.38); color: #fff; }
+        .sidebar-nav { padding: 0 8px; flex: 1; }
+        .sidebar-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 10px;
+            border-radius: 8px;
+            color: rgba(255,255,255,0.62);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            margin-bottom: 2px;
+        }
+        .sidebar-nav-item:hover { background: rgba(255,255,255,0.07); color: #fff; }
+        .sidebar-nav-item.active { background: rgba(37,99,235,0.28); color: #fff; }
+        .nav-icon { font-size: 15px; }
+
+        /* ── Main area ──────────────────────────────────────────────────────────── */
+        .main-area {
+            flex: 1;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .no-client-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+        .no-client-icon { font-size: 52px; }
+        .no-client-title { font-size: 22px; font-weight: 800; color: #0f172a; }
+        .no-client-text { font-size: 14px; max-width: 420px; line-height: 1.65; }
+        .btn-primary-lg {
+            padding: 12px 28px;
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+        .btn-primary-lg:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(37,99,235,0.3); }
+        .section-area { flex: 1; display: flex; flex-direction: column; overflow: auto; }
+        .placeholder-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: #94a3b8;
+            text-align: center;
+            padding: 40px;
+        }
+        .placeholder-icon { font-size: 44px; }
+        .placeholder-title { font-size: 20px; font-weight: 800; color: #64748b; }
+        .placeholder-text { font-size: 14px; max-width: 360px; }
+
+        /* ── Form label + help icon (used inside renderForm) ────────────────────── */
+        .form-label-with-help { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+        .form-label-with-help label { margin-bottom: 0; }
+        .help-icon {
+            width: 17px; height: 17px; border-radius: 50%;
+            background: #e0f2fe; color: #0369a1;
+            font-size: 11px; font-weight: 900;
+            display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer; flex-shrink: 0;
+        }
+        /* ── Small modal variant ─────────────────────────────────────────────────── */
+        .modal-sm { max-width: 480px !important; width: 90% !important; }
+        .modal-sm .modal-body { display: block !important; padding: 32px 36px !important; }
     </style>
 </head>
 <body>
-<div class="container" id="mainContainer">
-    <div class="header">
-        <div class="header-top">
-            <div>
-                <h1>Cloud Connectors</h1>
-                <p>Configure credenciais, valide acesso e explore recursos de Opus e AWS a partir da mesma interface operacional.</p>
-            </div>
-            <div class="provider-switch" id="providerSwitch"></div>
+
+<!-- ── Sidebar ─────────────────────────────────────────────────────────────── -->
+<aside class="sidebar" id="appSidebar">
+    <div class="sidebar-brand">
+        <div class="brand-icon">A2O</div>
+        <div class="brand-text">anywhere2opus</div>
+    </div>
+
+    <div class="sidebar-section-label">Cliente</div>
+    <div class="client-selector">
+        <select class="client-select" id="clientSelect" onchange="onClientSelectChange(this.value)">
+            <option value="">Selecione um cliente...</option>
+        </select>
+        <button type="button" class="btn-new-client" onclick="openNewClientModal()">+ Novo Cliente</button>
+    </div>
+
+    <div class="sidebar-section-label">Menu</div>
+    <nav class="sidebar-nav">
+        <div class="sidebar-nav-item active" id="nav-connectors" onclick="switchSidebarSection('connectors')">
+            <span class="nav-icon">🔌</span> Connectors
         </div>
-        <div class="tabs">
-            <div class="tab active" id="tab-test" onclick="switchTab('test')">Configurar API</div>
-            <div class="tab" id="tab-providers" onclick="switchTab('providers')">Recursos Salvos</div>
+        <div class="sidebar-nav-item" id="nav-resources" onclick="switchSidebarSection('resources')">
+            <span class="nav-icon">📦</span> Recursos
+        </div>
+        <div class="sidebar-nav-item" id="nav-migration" onclick="switchSidebarSection('migration')">
+            <span class="nav-icon">🔄</span> Migração
+        </div>
+    </nav>
+</aside>
+
+<!-- ── Main area ───────────────────────────────────────────────────────────── -->
+<div class="main-area" id="mainArea">
+
+    <!-- No client selected state -->
+    <div class="no-client-state" id="noClientState">
+        <div class="no-client-icon">☁️</div>
+        <div class="no-client-title">Bem-vindo ao anywhere2opus</div>
+        <div class="no-client-text">Selecione um cliente na barra lateral ou crie um novo para começar a gerenciar conectores de nuvem.</div>
+        <button type="button" class="btn-primary-lg" onclick="openNewClientModal()">+ Criar Novo Cliente</button>
+    </div>
+
+    <!-- Connectors section -->
+    <div class="section-area" id="section-connectors" style="display:none">
+        <div class="container" id="mainContainer">
+            <div class="header">
+                <div class="header-top">
+                    <div>
+                        <h1>Cloud Connectors</h1>
+                        <p id="connectorSubtitle">Configure credenciais, valide acesso e explore recursos de provedores cloud.</p>
+                    </div>
+                    <div class="provider-switch" id="providerSwitch"></div>
+                </div>
+                <div class="tabs">
+                    <div class="tab active" id="tab-test" onclick="switchTab('test')">Configurar API</div>
+                    <div class="tab" id="tab-providers" onclick="switchTab('providers')">Recursos Salvos</div>
+                </div>
+            </div>
+
+            <div class="panel active" id="panel-test">
+                <div class="panel-header">
+                    <div class="panel-title">Teste e cadastro de credenciais</div>
+                    <div class="panel-subtitle">Valide as permissões antes de salvar a conexão do provedor.</div>
+                </div>
+                <div class="provider-banner">
+                    <div class="provider-banner-badge" id="providerBannerBadge"></div>
+                    <div>
+                        <div class="provider-banner-title" id="providerBannerTitle"></div>
+                        <div class="provider-banner-text" id="providerBannerText"></div>
+                    </div>
+                </div>
+                <form id="dynamicForm">
+                    <div class="form-grid" id="formFields"></div>
+                    <div class="button-row">
+                        <button type="submit" class="btn-primary" id="testBtn">Testar conexão</button>
+                        <button type="button" class="btn-secondary" id="clearBtn">Limpar</button>
+                    </div>
+                </form>
+                <button type="button" class="btn-save" id="saveBtn">Salvar credenciais</button>
+                <div class="result" id="result"></div>
+            </div>
+
+            <div class="panel" id="panel-providers">
+                <div class="provider-list-header">
+                    <div>
+                        <div class="provider-list-title" id="providerListTitle"></div>
+                        <div class="provider-list-subtitle" id="providerListSubtitle"></div>
+                    </div>
+                    <button type="button" class="btn-secondary" onclick="loadProviders()">Atualizar lista</button>
+                </div>
+                <div id="providersList"></div>
+            </div>
+
+            <div class="footer">anywhere2opus Cloud Migration API</div>
         </div>
     </div>
 
-    <div class="panel active" id="panel-test">
-        <div class="panel-header">
-            <div class="panel-title">Teste e cadastro de credenciais</div>
-            <div class="panel-subtitle">Valide as permissões antes de salvar a conexão do provedor.</div>
+    <!-- Resources section (placeholder) -->
+    <div class="section-area" id="section-resources" style="display:none">
+        <div class="placeholder-section">
+            <div class="placeholder-icon">📦</div>
+            <div class="placeholder-title">Recursos</div>
+            <div class="placeholder-text">Gerenciamento consolidado de recursos de nuvem em breve.</div>
         </div>
-        <div class="provider-banner">
-            <div class="provider-banner-badge" id="providerBannerBadge"></div>
-            <div>
-                <div class="provider-banner-title" id="providerBannerTitle"></div>
-                <div class="provider-banner-text" id="providerBannerText"></div>
-            </div>
-        </div>
-        <form id="dynamicForm">
-            <div class="form-grid" id="formFields"></div>
-            <div class="button-row">
-                <button type="submit" class="btn-primary" id="testBtn">Testar conexão</button>
-                <button type="button" class="btn-secondary" id="clearBtn">Limpar</button>
-            </div>
-        </form>
-        <button type="button" class="btn-save" id="saveBtn">Salvar credenciais</button>
-        <div class="result" id="result"></div>
     </div>
 
-    <div class="panel" id="panel-providers">
-        <div class="provider-list-header">
-            <div>
-                <div class="provider-list-title" id="providerListTitle"></div>
-                <div class="provider-list-subtitle" id="providerListSubtitle"></div>
-            </div>
-            <button type="button" class="btn-secondary" onclick="loadProviders()">Atualizar lista</button>
+    <!-- Migration section (placeholder) -->
+    <div class="section-area" id="section-migration" style="display:none">
+        <div class="placeholder-section">
+            <div class="placeholder-icon">🔄</div>
+            <div class="placeholder-title">Migração</div>
+            <div class="placeholder-text">Fluxos de migração entre nuvens em breve.</div>
         </div>
-        <div id="providersList"></div>
     </div>
 
-    <div class="footer">anywhere2opus Cloud Migration API</div>
-</div>
+</div><!-- /main-area -->
 
 <!-- Tutorial Modal -->
 <div class="modal-overlay" id="tutorialModal">
@@ -550,8 +776,31 @@
             <h2 id="tutorialTitle">Como Gerar Chaves de API</h2>
             <button class="modal-close" onclick="closeTutorial()" type="button">×</button>
         </div>
-        <div class="modal-body" id="tutorialBody">
-            <!-- Preenchido dinamicamente pelo JavaScript -->
+        <div class="modal-body" id="tutorialBody"></div>
+    </div>
+</div>
+
+<!-- New Client Modal -->
+<div class="modal-overlay" id="newClientModal">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2>Novo Cliente</h2>
+            <button class="modal-close" onclick="closeNewClientModal()" type="button">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group full" style="margin-bottom:16px">
+                <label for="newClientName">Nome do Cliente *</label>
+                <input type="text" id="newClientName" placeholder="Ex: Empresa ACME" maxlength="120">
+            </div>
+            <div class="form-group full" style="margin-bottom:20px">
+                <label for="newClientDesc">Descrição</label>
+                <input type="text" id="newClientDesc" placeholder="Opcional">
+            </div>
+            <div id="clientFormError" style="display:none;color:#991b1b;font-size:13px;margin-bottom:12px;"></div>
+            <div class="button-row">
+                <button type="button" class="btn-primary" id="saveClientBtn" onclick="createClient()">Criar Cliente</button>
+                <button type="button" class="btn-secondary" onclick="closeNewClientModal()">Cancelar</button>
+            </div>
         </div>
     </div>
 </div>
@@ -563,6 +812,136 @@
     function buildApiUrl(path) {
         return API_BASE + path;
     }
+
+    // ── Multi-tenant state ────────────────────────────────────────────────────
+    let activeClientId = null;
+    let activeClientName = '';
+    let activeSidebarSection = 'connectors';
+
+    async function loadClients() {
+        try {
+            const res = await fetch(buildApiUrl('/clients'));
+            const clients = res.ok ? await res.json() : [];
+            renderClientDropdown(clients);
+        } catch (e) {
+            console.error('Erro ao carregar clientes:', e);
+        }
+    }
+
+    function renderClientDropdown(clients) {
+        const sel = document.getElementById('clientSelect');
+        sel.innerHTML = '<option value="">Selecione um cliente...</option>' +
+            clients.map((c) => '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>').join('');
+        if (activeClientId) {
+            sel.value = String(activeClientId);
+        }
+    }
+
+    function onClientSelectChange(value) {
+        if (!value) {
+            activeClientId = null;
+            activeClientName = '';
+        } else {
+            activeClientId = parseInt(value, 10);
+            const sel = document.getElementById('clientSelect');
+            const opt = sel.querySelector('option[value="' + value + '"]');
+            activeClientName = opt ? opt.textContent : '';
+        }
+        updateMainArea();
+    }
+
+    function updateMainArea() {
+        const noClient = document.getElementById('noClientState');
+        const connSection = document.getElementById('section-connectors');
+        const resSection = document.getElementById('section-resources');
+        const migSection = document.getElementById('section-migration');
+        if (!activeClientId) {
+            noClient.style.display = 'flex';
+            connSection.style.display = 'none';
+            resSection.style.display = 'none';
+            migSection.style.display = 'none';
+            return;
+        }
+        noClient.style.display = 'none';
+        const sub = document.getElementById('connectorSubtitle');
+        if (sub) sub.textContent = 'Conectores de ' + escapeHtml(activeClientName) + '. Configure credenciais, valide acesso e explore recursos de provedores cloud.';
+        connSection.style.display = activeSidebarSection === 'connectors' ? 'flex' : 'none';
+        resSection.style.display = activeSidebarSection === 'resources' ? 'flex' : 'none';
+        migSection.style.display = activeSidebarSection === 'migration' ? 'flex' : 'none';
+        if (activeSidebarSection === 'connectors' && activeTab === 'providers') {
+            loadProviders();
+        }
+    }
+
+    function switchSidebarSection(section) {
+        activeSidebarSection = section;
+        document.querySelectorAll('.sidebar-nav-item').forEach((el) => el.classList.remove('active'));
+        const navEl = document.getElementById('nav-' + section);
+        if (navEl) navEl.classList.add('active');
+        updateMainArea();
+    }
+
+    function openNewClientModal() {
+        document.getElementById('newClientName').value = '';
+        document.getElementById('newClientDesc').value = '';
+        document.getElementById('clientFormError').style.display = 'none';
+        document.getElementById('saveClientBtn').disabled = false;
+        document.getElementById('saveClientBtn').textContent = 'Criar Cliente';
+        document.getElementById('newClientModal').classList.add('show');
+    }
+
+    function closeNewClientModal() {
+        document.getElementById('newClientModal').classList.remove('show');
+    }
+
+    async function createClient() {
+        const name = document.getElementById('newClientName').value.trim();
+        const desc = document.getElementById('newClientDesc').value.trim();
+        const errEl = document.getElementById('clientFormError');
+        if (!name) {
+            errEl.textContent = 'O nome do cliente é obrigatório.';
+            errEl.style.display = 'block';
+            return;
+        }
+        errEl.style.display = 'none';
+        const btn = document.getElementById('saveClientBtn');
+        btn.disabled = true;
+        btn.textContent = 'Criando...';
+        try {
+            const res = await fetch(buildApiUrl('/clients'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description: desc || null }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                closeNewClientModal();
+                await loadClients();
+                activeClientId = data.id;
+                activeClientName = data.name;
+                document.getElementById('clientSelect').value = String(data.id);
+                activeSidebarSection = 'connectors';
+                document.querySelectorAll('.sidebar-nav-item').forEach((el) => el.classList.remove('active'));
+                const navEl = document.getElementById('nav-connectors');
+                if (navEl) navEl.classList.add('active');
+                updateMainArea();
+            } else {
+                errEl.textContent = data.detail || 'Erro ao criar cliente.';
+                errEl.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Criar Cliente';
+            }
+        } catch (e) {
+            errEl.textContent = 'Erro de comunicação: ' + escapeHtml(e.message);
+            errEl.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Criar Cliente';
+        }
+    }
+
+    document.getElementById('newClientModal').addEventListener('click', (e) => {
+        if (e.target.id === 'newClientModal') closeNewClientModal();
+    });
 
     const PROVIDERS = {
         opus: {
@@ -1070,10 +1449,18 @@
         saveBtn.textContent = 'Salvando...';
 
         try {
+            const savePayload = Object.assign({}, lastTest.payload);
+            if (activeClientId) {
+                if (activeProvider === 'azure') {
+                    savePayload.tenant_client_id = activeClientId;
+                } else {
+                    savePayload.client_id = activeClientId;
+                }
+            }
             const response = await fetch(buildApiUrl(provider.saveEndpoint), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(lastTest.payload),
+                body: JSON.stringify(savePayload),
             });
             const data = await response.json();
             if (response.ok) {
@@ -1207,7 +1594,8 @@
         const provider = PROVIDERS[activeProvider];
         providersList.innerHTML = '<div class="empty-state">Carregando conexões ' + provider.label + '...</div>';
         try {
-            const response = await fetch(buildApiUrl(provider.listEndpoint));
+            const clientParam = activeClientId ? '?client_id=' + activeClientId : '';
+            const response = await fetch(buildApiUrl(provider.listEndpoint + clientParam));
             const list = response.ok ? await response.json() : [];
             if (!list.length) {
                 providersList.innerHTML = '<div class="empty-state">Nenhuma conexão ' + provider.label + ' salva.<br>Use a aba <b>Configurar API</b> para cadastrar uma nova credencial.</div>';
@@ -1782,6 +2170,7 @@
 
     renderProviderSwitch();
     renderActiveProvider();
+    loadClients();
 </script>
 </body>
 </html>

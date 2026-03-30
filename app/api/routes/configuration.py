@@ -151,6 +151,8 @@ def save_aws_credentials(
     if existing:
         existing.credentials_json = encrypted
         existing.is_active = True
+        if request.client_id is not None:
+            existing.client_id = request.client_id
         db_provider = existing
     else:
         db_provider = CloudProvider(
@@ -158,6 +160,7 @@ def save_aws_credentials(
             type=ProviderType.AWS,
             credentials_json=encrypted,
             is_active=True,
+            client_id=request.client_id,
         )
         db.add(db_provider)
 
@@ -417,6 +420,8 @@ def save_cloudstack_credentials(
     if existing:
         existing.credentials_json = encrypted
         existing.is_active = True
+        if request.client_id is not None:
+            existing.client_id = request.client_id
         db_provider = existing
     else:
         db_provider = CloudProvider(
@@ -424,6 +429,7 @@ def save_cloudstack_credentials(
             type=ProviderType.CLOUDSTACK,
             credentials_json=encrypted,
             is_active=True,
+            client_id=request.client_id,
         )
         db.add(db_provider)
 
