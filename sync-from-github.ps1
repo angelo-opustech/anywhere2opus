@@ -47,7 +47,7 @@ function Get-GitPorcelain {
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to read git status in ${Path}"
     }
-    return @($output | Where-Object { $_ -and $_.Trim() })
+    return ,@($output | Where-Object { $_ -and $_.Trim() })
 }
 
 function New-BashCommand {
@@ -72,7 +72,7 @@ $defaultBranch = $originHead -replace "^refs/remotes/origin/", ""
 $targetRef = "origin/$defaultBranch"
 
 $windowsStatus = Get-GitPorcelain -Path $RepoPath
-if ($windowsStatus.Count -gt 0 -and -not $ForceReset) {
+if (@($windowsStatus).Count -gt 0 -and -not $ForceReset) {
     throw "Windows clone has local changes. Commit/push first or rerun with -ForceReset."
 }
 
@@ -88,7 +88,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $wslStatusLines = @($wslStatus | Where-Object { $_ -and $_.Trim() })
-if ($wslStatusLines.Count -gt 0 -and -not $ForceReset) {
+if (@($wslStatusLines).Count -gt 0 -and -not $ForceReset) {
     throw "WSL clone has local changes. Commit/push first or rerun with -ForceReset."
 }
 
