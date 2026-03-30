@@ -172,16 +172,16 @@ $shouldRestartService = -not $SkipServiceRestart -and ($wslHasChanges -or $wslHe
 
 if ($shouldRestartService) {
     Write-Host "[4/5] Restarting $ServiceName service in $Distro..."
-    $serviceCommand = New-BashCommand -Lines @(
-        "set -e",
-        "systemctl restart $ServiceName",
-        "for attempt in {1..30}; do",
-        "  systemctl is-active --quiet $ServiceName || exit 1",
-        "  curl -fsS http://127.0.0.1:8000/connectors >/dev/null && exit 0",
-        "  sleep 1",
-        "done",
-        "exit 1"
-    )
+    $serviceCommand = @"
+set -e
+systemctl restart $ServiceName
+for attempt in {1..30}; do
+  systemctl is-active --quiet $ServiceName || exit 1
+  curl -fsS http://127.0.0.1:8000/connectors >/dev/null && exit 0
+  sleep 1
+done
+exit 1
+"@
     Invoke-WslBash -Command $serviceCommand
 }
 elseif ($SkipServiceRestart) {
