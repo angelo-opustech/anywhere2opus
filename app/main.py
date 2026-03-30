@@ -98,7 +98,7 @@ def _serve_index():
 
 @app.get("/", tags=["Web"], summary="Empty root", status_code=204)
 async def root():
-    return Response(status_code=204)
+    return _serve_index()
 
 
 @app.get(BASE_PATH, tags=["Web"], summary="Published Opus Configuration Interface")

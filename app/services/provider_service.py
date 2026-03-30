@@ -2,6 +2,7 @@ import json
 from typing import List, Optional
 
 import structlog
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -35,7 +36,9 @@ class ProviderService:
         if active_only:
             query = query.filter(CloudProvider.is_active == True)  # noqa: E712
         if client_id is not None:
-            query = query.filter(CloudProvider.client_id == client_id)
+            query = query.filter(
+                or_(CloudProvider.client_id == client_id, CloudProvider.client_id.is_(None))
+            )
         total = query.count()
         providers = query.offset(skip).limit(limit).all()
         return providers, total

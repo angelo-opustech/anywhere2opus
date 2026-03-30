@@ -27,7 +27,7 @@ class Client(Base):
         "CloudProvider",
         back_populates="client",
         cascade="all, delete-orphan",
-        lazy="dynamic",
+        lazy="select",
     )
 
     def __repr__(self) -> str:
