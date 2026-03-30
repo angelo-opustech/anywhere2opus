@@ -1,7 +1,7 @@
 import base64
 import hashlib
 import json
-from typing import Any
+from typing import Any, Optional
 
 from cryptography.fernet import Fernet
 
@@ -17,7 +17,7 @@ def encrypt_credentials(payload: dict[str, Any]) -> str:
     return get_fernet().encrypt(json.dumps(payload).encode()).decode()
 
 
-def decrypt_credentials(credentials_json: str | None) -> dict[str, Any]:
+def decrypt_credentials(credentials_json: Optional[str]) -> dict[str, Any]:
     if not credentials_json:
         return {}
 
