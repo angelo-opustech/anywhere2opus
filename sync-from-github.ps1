@@ -58,6 +58,42 @@ function New-BashCommand {
     return ($Lines -join "; ")
 }
 
+function Get-GitHead {
+    param(
+        [string]$Path,
+        [string]$Ref = "HEAD"
+    )
+
+    $output = (& git -C $Path rev-parse $Ref).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $output) {
+        throw "Failed to resolve git ref ${Ref} in ${Path}"
+    }
+    return $output
+}
+
+function Wait-ForWindowsHttp {
+    param(
+        [string]$Url,
+        [int]$Attempts = 30,
+        [int]$DelaySeconds = 1
+    )
+
+    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+        try {
+            $response = Invoke-WebRequest -UseBasicParsing $Url -TimeoutSec 5
+            if ($response.StatusCode -eq 200) {
+                return [string]$response.StatusCode
+            }
+        }
+        catch {
+        }
+
+        Start-Sleep -Seconds $DelaySeconds
+    }
+
+    throw "Windows HTTP health check did not return 200 for $Url"
+}
+
 Write-Host "[1/5] Resolving repository state..."
 if (-not (Test-Path (Join-Path $RepoPath ".git"))) {
     throw "RepoPath is not a git repository: $RepoPath"
@@ -70,6 +106,9 @@ if ($LASTEXITCODE -ne 0 -or -not $originHead) {
 
 $defaultBranch = $originHead -replace "^refs/remotes/origin/", ""
 $targetRef = "origin/$defaultBranch"
+
+Invoke-Git -Path $RepoPath -Arguments @("fetch", "origin")
+$targetCommit = Get-GitHead -Path $RepoPath -Ref $targetRef
 
 $windowsStatus = Get-GitPorcelain -Path $RepoPath
 if (@($windowsStatus).Count -gt 0 -and -not $ForceReset) {
@@ -88,12 +127,22 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $wslStatusLines = @($wslStatus | Where-Object { $_ -and $_.Trim() })
+$wslHasChanges = @($wslStatusLines).Count -gt 0
 if (@($wslStatusLines).Count -gt 0 -and -not $ForceReset) {
     throw "WSL clone has local changes. Commit/push first or rerun with -ForceReset."
 }
 
+$wslHeadCommand = New-BashCommand -Lines @(
+    "set -e",
+    "cd '$escapedWslRepoPath'",
+    "git rev-parse HEAD"
+)
+$wslHeadBefore = (& wsl -d $Distro -- bash -lc $wslHeadCommand).Trim()
+if ($LASTEXITCODE -ne 0 -or -not $wslHeadBefore) {
+    throw "Failed to resolve WSL HEAD in ${Distro}:${WslRepoPath}"
+}
+
 Write-Host "[2/5] Aligning Windows clone to $targetRef..."
-Invoke-Git -Path $RepoPath -Arguments @("fetch", "origin")
 Invoke-Git -Path $RepoPath -Arguments @("config", "core.autocrlf", "false")
 Invoke-Git -Path $RepoPath -Arguments @("checkout", $defaultBranch)
 Invoke-Git -Path $RepoPath -Arguments @("reset", "--hard", $targetRef)
@@ -110,22 +159,40 @@ $syncCommand = New-BashCommand -Lines @(
 )
 Invoke-WslBash -Command $syncCommand
 
-if (-not $SkipServiceRestart) {
+$wslHeadAfter = (& wsl -d $Distro -- bash -lc $wslHeadCommand).Trim()
+if ($LASTEXITCODE -ne 0 -or -not $wslHeadAfter) {
+    throw "Failed to resolve updated WSL HEAD in ${Distro}:${WslRepoPath}"
+}
+
+if ($wslHeadAfter -ne $targetCommit) {
+    throw "WSL clone did not land on expected commit $targetCommit"
+}
+
+$shouldRestartService = -not $SkipServiceRestart -and ($wslHasChanges -or $wslHeadBefore -ne $targetCommit)
+
+if ($shouldRestartService) {
     Write-Host "[4/5] Restarting $ServiceName service in $Distro..."
     $serviceCommand = New-BashCommand -Lines @(
         "set -e",
         "systemctl restart $ServiceName",
-        "sleep 3",
-        "systemctl is-active --quiet $ServiceName"
+        "for attempt in $(seq 1 30); do",
+        "  systemctl is-active --quiet $ServiceName || exit 1",
+        "  curl -fsS http://127.0.0.1:8000/connectors >/dev/null && exit 0",
+        "  sleep 1",
+        "done",
+        "exit 1"
     )
     Invoke-WslBash -Command $serviceCommand
 }
+elseif ($SkipServiceRestart) {
+    Write-Host "[4/5] Skipping service restart by request."
+}
 else {
-    Write-Host "[4/5] Skipping service restart."
+    Write-Host "[4/5] Skipping service restart because the deployed commit is unchanged."
 }
 
 Write-Host "[5/5] Verifying HTTP health..."
-$healthCommand = "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/connectors"
+$healthCommand = "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/connectors"
 $statusCode = (& wsl -d $Distro -- bash -lc $healthCommand).Trim()
 if ($LASTEXITCODE -ne 0) {
     throw "Health check command failed in distro $Distro"
@@ -135,6 +202,8 @@ if ($statusCode -ne "200") {
     throw "Unexpected HTTP status from application: $statusCode"
 }
 
+$windowsStatusCode = Wait-ForWindowsHttp -Url "http://localhost:8000/connectors"
+
 $currentCommit = (& git -C $RepoPath rev-parse --short HEAD).Trim()
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to resolve current commit in $RepoPath"
@@ -143,4 +212,5 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "Sync complete."
 Write-Host "Branch: $defaultBranch"
 Write-Host "Commit: $currentCommit"
-Write-Host "HTTP:   $statusCode"
+Write-Host "WSL:    $statusCode"
+Write-Host "Windows:$windowsStatusCode"
