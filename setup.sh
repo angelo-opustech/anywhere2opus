@@ -18,6 +18,8 @@ DB_PORT="5432"
 APP_PORT="8000"
 VENV_DIR="$REPO_DIR/venv"
 ENV_FILE="$REPO_DIR/.env"
+SERVICE_NAME="anywhere2opus.service"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}"
 APP_ONLY=false
 
 # ── Parse args ────────────────────────────────────────────────────────────────
@@ -38,6 +40,10 @@ detect_os() {
   elif command -v yum &>/dev/null; then echo "yum"
   elif command -v apt-get &>/dev/null; then echo "apt"
   else error "Package manager not found (dnf/yum/apt)"; fi
+}
+
+has_systemd() {
+  command -v systemctl &>/dev/null && [[ -d /run/systemd/system ]]
 }
 
 # ── 1. System dependencies ────────────────────────────────────────────────────
@@ -185,26 +191,82 @@ run_migrations() {
   success "Migrations applied"
 }
 
-# ── 7. Start app ──────────────────────────────────────────────────────────────
-start_app() {
+# ── 7. Service management ─────────────────────────────────────────────────────
+install_service() {
+  if [[ "$EUID" -ne 0 ]]; then
+    warn "Skipping systemd service installation: root privileges required"
+    return 1
+  fi
+
+  if ! has_systemd; then
+    warn "Skipping systemd service installation: systemd not available"
+    return 1
+  fi
+
+  info "Installing systemd service ($SERVICE_NAME)..."
+  cat > "$SERVICE_FILE" <<EOF
+[Unit]
+Description=anywhere2opus API
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=$REPO_DIR
+Environment=PATH=$VENV_DIR/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStartPre=-/usr/bin/docker start $DB_CONTAINER
+ExecStart=$VENV_DIR/bin/uvicorn app.main:app --host 0.0.0.0 --port $APP_PORT
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable "$SERVICE_NAME" >/dev/null
+  success "Systemd service installed"
+}
+
+start_app_with_systemd() {
+  info "Starting anywhere2opus with systemd on port $APP_PORT..."
+  pkill -f "uvicorn app.main:app" 2>/dev/null || true
+  systemctl restart "$SERVICE_NAME"
+  sleep 4
+
+  if systemctl is-active --quiet "$SERVICE_NAME"; then
+    success "anywhere2opus running via systemd on http://0.0.0.0:${APP_PORT}/connectors"
+  else
+    error "Application failed to start under systemd. Check: journalctl -u $SERVICE_NAME -n 100"
+  fi
+}
+
+start_app_with_nohup() {
   info "Starting anywhere2opus on port $APP_PORT..."
   source "$VENV_DIR/bin/activate"
   cd "$REPO_DIR"
 
-  # Kill any existing instance
   pkill -f "uvicorn app.main:app" 2>/dev/null || true
   sleep 1
 
   nohup uvicorn app.main:app --host 0.0.0.0 --port "$APP_PORT" \
     > /tmp/anywhere2opus.log 2>&1 &
   local PID=$!
-  disown $PID
+  disown "$PID"
 
   sleep 4
-  if kill -0 $PID 2>/dev/null; then
+  if kill -0 "$PID" 2>/dev/null; then
     success "anywhere2opus running (PID $PID) on http://0.0.0.0:${APP_PORT}/connectors"
   else
     error "Application failed to start. Check /tmp/anywhere2opus.log"
+  fi
+}
+
+start_app() {
+  if install_service; then
+    start_app_with_systemd
+  else
+    start_app_with_nohup
   fi
 }
 
@@ -242,8 +304,14 @@ main() {
   echo "  Web UI:  http://localhost:${APP_PORT}/connectors"
   echo "  API:     http://localhost:${APP_PORT}/connectors/api/v1"
   echo "  Docs:    http://localhost:${APP_PORT}/docs"
-  echo "  Logs:    tail -f /tmp/anywhere2opus.log"
-  echo "  Restart: pkill -f uvicorn; ./setup.sh --app-only"
+  if has_systemd && [[ "$EUID" -eq 0 ]]; then
+    echo "  Service:  systemctl status ${SERVICE_NAME}"
+    echo "  Logs:     journalctl -u ${SERVICE_NAME} -f"
+    echo "  Restart:  systemctl restart ${SERVICE_NAME}"
+  else
+    echo "  Logs:    tail -f /tmp/anywhere2opus.log"
+    echo "  Restart: pkill -f uvicorn; ./setup.sh --app-only"
+  fi
   echo "=================================================="
   echo ""
 }
