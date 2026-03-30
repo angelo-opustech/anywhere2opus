@@ -36,6 +36,7 @@ class CloudProviderCreate(CloudProviderBase):
 class CloudProviderUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     is_active: Optional[bool] = None
+    client_id: Optional[int] = Field(None, description="Client this provider belongs to")
     credentials: Optional[Dict[str, Any]] = None
 
     def credentials_to_json(self) -> Optional[str]:

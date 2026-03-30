@@ -74,6 +74,8 @@ class ProviderService:
             provider.name = data.name
         if data.is_active is not None:
             provider.is_active = data.is_active
+        if data.client_id is not None:
+            provider.client_id = data.client_id
         if data.credentials is not None:
             provider.credentials_json = encrypt_credentials(data.credentials)
         self.db.commit()
