@@ -27,6 +27,7 @@ class Settings(BaseSettings):
 
     # Security
     secret_key: str = "change-me-in-production-at-least-32-characters-long"
+    encryption_key: Optional[str] = None
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 

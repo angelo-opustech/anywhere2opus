@@ -38,6 +38,8 @@ class CloudStackProvider(BaseProvider):
         self.default_zone_id = zone_id
         self.timeout = timeout
         self.verify_ssl = verify_ssl
+        if not verify_ssl:
+            logger.warning("cloudstack_ssl_verification_disabled", api_url=self.api_url)
 
     def _sign(self, params: Dict[str, str]) -> str:
         """Return HMAC-SHA1 signature for the given sorted parameter dict."""

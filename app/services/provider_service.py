@@ -31,6 +31,7 @@ class ProviderService:
         if active_only:
             query = query.filter(CloudProvider.is_active == True)  # noqa: E712
         if client_id is not None:
+            # TODO: remove NULL fallback after migrating orphan providers to explicit clients.
             query = query.filter(
                 or_(CloudProvider.client_id == client_id, CloudProvider.client_id.is_(None))
             )
