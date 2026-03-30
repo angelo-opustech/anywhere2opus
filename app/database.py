@@ -1,5 +1,5 @@
 from typing import Generator
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase
 from sqlalchemy.pool import QueuePool
 import structlog
@@ -49,41 +49,20 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def create_tables() -> None:
-    """Create all tables in the database. Used for initial setup or testing."""
-    # 1. Create brand-new tables (clients, etc.) before we add FKs to them.
+    """Create all tables that don't yet exist.
+
+    Used as a lightweight dev/test helper and as a safety net on startup.
+    Schema evolution in production is handled by Alembic migrations
+    (alembic/versions/). Run ``alembic upgrade head`` to apply migrations.
+
+    For an existing production DB that was bootstrapped before Alembic was
+    introduced, stamp the current revision so future migrations apply cleanly:
+
+        alembic stamp 0001_initial_schema
+    """
     Base.metadata.create_all(bind=engine)
-
-    # 2. Extend existing PostgreSQL enum types with new values.
-    _new_resource_type_values = ["KUBERNETES", "FILESTORE", "STORAGE_FLASH", "STORAGE_SAS"]
-    with engine.connect() as conn:
-        for val in _new_resource_type_values:
-            try:
-                conn.execute(
-                    text(f"ALTER TYPE resourcetype ADD VALUE IF NOT EXISTS '{val}'")
-                )
-                conn.commit()
-            except Exception as exc:
-                conn.rollback()
-                logger.warning(
-                    "db_enum_extend_skipped",
-                    enum="resourcetype",
-                    value=val,
-                    reason=str(exc),
-                )
-
-        # 3. Add client_id FK column to cloud_providers if it doesn't exist yet.
-        try:
-            conn.execute(text(
-                "ALTER TABLE cloud_providers "
-                "ADD COLUMN IF NOT EXISTS client_id INTEGER "
-                "REFERENCES clients(id) ON DELETE CASCADE"
-            ))
-            conn.commit()
-        except Exception as exc:
-            conn.rollback()
-            logger.warning("db_add_client_id_skipped", reason=str(exc))
 
 
 def drop_tables() -> None:
-    """Drop all tables. Use with extreme caution."""
+    """Drop all tables. Use with extreme caution — irreversible."""
     Base.metadata.drop_all(bind=engine)

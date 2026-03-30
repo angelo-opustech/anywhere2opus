@@ -821,8 +821,8 @@
     async function loadClients() {
         try {
             const res = await fetch(buildApiUrl('/clients'));
-            const clients = res.ok ? await res.json() : [];
-            renderClientDropdown(clients);
+            const data = res.ok ? await res.json() : { items: [] };
+            renderClientDropdown(Array.isArray(data) ? data : (data.items || []));
         } catch (e) {
             console.error('Erro ao carregar clientes:', e);
         }
