@@ -90,6 +90,21 @@ The script will:
 - restart the `anywhere2opus` service in AlmaLinux
 - validate `http://localhost:8000/connectors`
 
+### Windows Keepalive For WSL
+
+The web UI is opened from Windows, but the app runs in AlmaLinux on WSL. If WSL becomes idle, Windows may stop reaching `http://localhost:8000` even though the Linux service itself is configured correctly. To keep the distro alive and automatically start it on login:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install-anywhere2opus-autostart.ps1 -StartNow
+```
+
+This installs a Windows auto-start entry and launches a hidden keepalive session for AlmaLinux.
+
+Manual commands:
+
+- Start keepalive now: `powershell -ExecutionPolicy Bypass -File .\start-anywhere2opus-keepalive.ps1`
+- Stop keepalive: `powershell -ExecutionPolicy Bypass -File .\start-anywhere2opus-keepalive.ps1 -Stop`
+
 ## 🔧 Configuration
 
 ### Environment Variables
