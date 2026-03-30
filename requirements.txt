@@ -24,6 +24,3 @@ passlib[bcrypt]==1.7.4
 python-multipart==0.0.12
 tenacity==9.0.0
 structlog==24.4.0
-
-cryptography==43.0.1
-
