@@ -330,41 +330,7 @@ class CloudStackProvider(BaseProvider):
             logger.error("cloudstack_connection_failed", error=str(e))
             return False
 
-    def stop_vm(self, vm_id: str, region: Optional[str] = None) -> Dict[str, Any]:
-        try:
-            self._make_request("stopVirtualMachine", {"id": vm_id})
-            return self.get_vm(vm_id, region)
-        except Exception as e:
-            logger.error("cloudstack_stop_vm_error", vm_id=vm_id, error=str(e))
-            raise RuntimeError(f"CloudStack stop_vm failed: {e}") from e
-
-    def list_regions(self) -> List[Dict[str, Any]]:
-        result = self._make_request("listZones")
-        zones = result.get("listzonesresponse", {}).get("zone", [])
-        return [
-            {
-                "id": z["id"],
-                "name": z["name"],
-                "status": (z.get("allocationstate") or "").lower(),
-            }
-            for z in zones
-        ]
-
     # --- CloudStack-specific methods for migration ---
-
-    def list_service_offerings(self) -> List[Dict[str, Any]]:
-        result = self._make_request("listServiceOfferings")
-        offerings = result.get("listserviceofferingsresponse", {}).get("serviceoffering", [])
-        return [
-            {
-                "id": o["id"],
-                "name": o["name"],
-                "cpunumber": o.get("cpunumber"),
-                "memory_mb": o.get("memory"),
-                "description": o.get("displaytext"),
-            }
-            for o in offerings
-        ]
 
     def list_disk_offerings(self) -> List[Dict[str, Any]]:
         result = self._make_request("listDiskOfferings")
@@ -377,20 +343,6 @@ class CloudStackProvider(BaseProvider):
                 "description": o.get("displaytext"),
             }
             for o in offerings
-        ]
-
-    def list_templates(self, template_filter: str = "executable") -> List[Dict[str, Any]]:
-        result = self._make_request("listTemplates", {"templatefilter": template_filter})
-        templates = result.get("listtemplatesresponse", {}).get("template", [])
-        return [
-            {
-                "id": t["id"],
-                "name": t["name"],
-                "os_type": t.get("ostypename"),
-                "hypervisor": t.get("hypervisor"),
-                "format": t.get("format"),
-            }
-            for t in templates
         ]
 
     def deploy_virtual_machine(

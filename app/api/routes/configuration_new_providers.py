@@ -3,16 +3,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-import json
-import base64
-import hashlib
 import structlog
 
-from app.config import settings
 from app.database import get_db
 from app.models.provider import CloudProvider, ProviderType
 from app.providers.factory import get_provider
-from cryptography.fernet import Fernet
+from app.utils.crypto import decrypt_credentials, encrypt_credentials
 from app.schemas.configuration import (
     GCPConfig, GCPTestResult, GCPSaveRequest, GCPSavedProvider, GCPProjectInfo,
     AzureConfig, AzureTestResult, AzureSaveRequest, AzureSavedProvider, AzureAccountInfo,
@@ -21,20 +17,6 @@ from app.schemas.configuration import (
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/configuration", tags=["Configuration & Testing"])
-
-
-def _get_fernet() -> Fernet:
-    """Derive a Fernet key from the application secret_key."""
-    key_bytes = hashlib.sha256(settings.secret_key.encode()).digest()
-    return Fernet(base64.urlsafe_b64encode(key_bytes))
-
-
-def _decrypt_provider_credentials(db_provider: CloudProvider):
-    fernet = _get_fernet()
-    try:
-        return json.loads(fernet.decrypt(db_provider.credentials_json.encode()).decode())
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to decrypt credentials: {e}")
 
 
 # ============================================================================
@@ -105,14 +87,13 @@ def save_gcp_credentials(request: GCPSaveRequest, db: Session = Depends(get_db))
     project_name = project_info.get("project_name", request.project_id)
     name = request.name or f"GCP {project_name}"
 
-    fernet = _get_fernet()
     credentials_payload = {
         "project_id": request.project_id,
         "service_account_key_json": request.service_account_key_json,
         "default_region": request.default_region,
         "project_name": project_name,
     }
-    encrypted = fernet.encrypt(json.dumps(credentials_payload).encode()).decode()
+    encrypted = encrypt_credentials(credentials_payload)
 
     existing = (
         db.query(CloudProvider)
@@ -172,10 +153,10 @@ def list_gcp_providers(db: Session = Depends(get_db)):
         project_id = "unknown"
         region = "us-central1"
         try:
-            creds = _decrypt_provider_credentials(provider)
+            creds = decrypt_credentials(provider.credentials_json)
             project_id = creds.get("project_id")
             region = creds.get("default_region", region)
-        except HTTPException:
+        except Exception:
             pass
 
         result.append(
@@ -207,7 +188,7 @@ def get_gcp_provider_resources(provider_id: int, db: Session = Depends(get_db)):
     if not db_provider:
         raise HTTPException(status_code=404, detail="Provider not found")
 
-    creds = _decrypt_provider_credentials(db_provider)
+    creds = decrypt_credentials(db_provider.credentials_json)
     provider = get_provider(ProviderType.GCP, credentials=creds)
 
     vms = provider.list_vms()
@@ -315,7 +296,6 @@ def save_azure_credentials(request: AzureSaveRequest, db: Session = Depends(get_
     sub_name = account_info.get("subscription_name", request.subscription_id)
     name = request.name or f"Azure {sub_name}"
 
-    fernet = _get_fernet()
     credentials_payload = {
         "subscription_id": request.subscription_id,
         "tenant_id": request.tenant_id,
@@ -323,7 +303,7 @@ def save_azure_credentials(request: AzureSaveRequest, db: Session = Depends(get_
         "client_secret": request.client_secret,
         "default_location": request.default_location,
     }
-    encrypted = fernet.encrypt(json.dumps(credentials_payload).encode()).decode()
+    encrypted = encrypt_credentials(credentials_payload)
 
     existing = (
         db.query(CloudProvider)
@@ -335,8 +315,8 @@ def save_azure_credentials(request: AzureSaveRequest, db: Session = Depends(get_
     if existing:
         existing.credentials_json = encrypted
         existing.is_active = True
-        if request.tenant_client_id is not None:
-            existing.client_id = request.tenant_client_id
+        if request.client_id is not None:
+            existing.client_id = request.client_id
         db_provider = existing
     else:
         db_provider = CloudProvider(
@@ -344,7 +324,7 @@ def save_azure_credentials(request: AzureSaveRequest, db: Session = Depends(get_
             type=ProviderType.AZURE,
             credentials_json=encrypted,
             is_active=True,
-            client_id=request.tenant_client_id,
+            client_id=request.client_id,
         )
         db.add(db_provider)
 
@@ -385,11 +365,11 @@ def list_azure_providers(db: Session = Depends(get_db)):
         tenant_id = "unknown"
         location = "eastus"
         try:
-            creds = _decrypt_provider_credentials(provider)
+            creds = decrypt_credentials(provider.credentials_json)
             subscription_id = creds.get("subscription_id")
             tenant_id = creds.get("tenant_id")
             location = creds.get("default_location", location)
-        except HTTPException:
+        except Exception:
             pass
 
         result.append(
@@ -422,7 +402,7 @@ def get_azure_provider_resources(provider_id: int, db: Session = Depends(get_db)
     if not db_provider:
         raise HTTPException(status_code=404, detail="Provider not found")
 
-    creds = _decrypt_provider_credentials(db_provider)
+    creds = decrypt_credentials(db_provider.credentials_json)
     provider = get_provider(ProviderType.AZURE, credentials=creds)
 
     vms = provider.list_vms()
@@ -530,7 +510,6 @@ def save_oci_credentials(request: OCISaveRequest, db: Session = Depends(get_db))
     tenancy_name = tenancy_info.get("tenancy_name", request.tenancy_ocid)
     name = request.name or f"OCI {tenancy_name}/{request.region}"
 
-    fernet = _get_fernet()
     credentials_payload = {
         "user_ocid": request.user_ocid,
         "fingerprint": request.fingerprint,
@@ -538,7 +517,7 @@ def save_oci_credentials(request: OCISaveRequest, db: Session = Depends(get_db))
         "region": request.region,
         "private_key_content": request.private_key_content,
     }
-    encrypted = fernet.encrypt(json.dumps(credentials_payload).encode()).decode()
+    encrypted = encrypt_credentials(credentials_payload)
 
     existing = (
         db.query(CloudProvider)
@@ -598,10 +577,10 @@ def list_oci_providers(db: Session = Depends(get_db)):
         tenancy_id = "unknown"
         region = "us-ashburn-1"
         try:
-            creds = _decrypt_provider_credentials(provider)
+            creds = decrypt_credentials(provider.credentials_json)
             tenancy_id = creds.get("tenancy_ocid")
             region = creds.get("region", region)
-        except HTTPException:
+        except Exception:
             pass
 
         result.append(
@@ -633,7 +612,7 @@ def get_oci_provider_resources(provider_id: int, db: Session = Depends(get_db)):
     if not db_provider:
         raise HTTPException(status_code=404, detail="Provider not found")
 
-    creds = _decrypt_provider_credentials(db_provider)
+    creds = decrypt_credentials(db_provider.credentials_json)
     provider = get_provider(ProviderType.OCI, credentials=creds)
 
     vms = provider.list_vms()

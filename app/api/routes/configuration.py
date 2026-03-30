@@ -1,20 +1,16 @@
 """Configuration and connection testing endpoints for cloud providers."""
 
-import base64
-import hashlib
-import json
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import List
 
-from cryptography.fernet import Fernet
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import structlog
 
-from app.config import settings
 from app.database import get_db
 from app.models.provider import CloudProvider, ProviderType
 from app.providers.factory import get_provider
+from app.utils.crypto import decrypt_credentials, encrypt_credentials
 from app.schemas.configuration import (
     AWSAccountInfo,
     AWSConfig,
@@ -24,31 +20,14 @@ from app.schemas.configuration import (
     CloudStackAccountInfo,
     CloudStackConfig,
     CloudStackTestResult,
-    CloudStackZonesList,
     CloudStackZone,
     CloudStackSaveRequest,
     CloudStackSavedProvider,
-    ProviderConfigTest,
-    ProviderTestResult,
 )
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/configuration", tags=["Configuration & Testing"])
-
-
-def _get_fernet() -> Fernet:
-    """Derive a Fernet key from the application secret_key."""
-    key_bytes = hashlib.sha256(settings.secret_key.encode()).digest()
-    return Fernet(base64.urlsafe_b64encode(key_bytes))
-
-
-def _decrypt_provider_credentials(db_provider: CloudProvider) -> Dict[str, Any]:
-    fernet = _get_fernet()
-    try:
-        return json.loads(fernet.decrypt(db_provider.credentials_json.encode()).decode())
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to decrypt credentials: {e}")
 
 
 # ============================================================================
@@ -129,7 +108,6 @@ def save_aws_credentials(
     arn = account_data.get("arn")
     name = request.name or f"AWS {account_id}/{request.region}"
 
-    fernet = _get_fernet()
     credentials_payload = {
         "access_key_id": request.access_key_id,
         "secret_access_key": request.secret_access_key,
@@ -139,7 +117,7 @@ def save_aws_credentials(
         "arn": arn,
         "user_id": account_data.get("user_id"),
     }
-    encrypted = fernet.encrypt(json.dumps(credentials_payload).encode()).decode()
+    encrypted = encrypt_credentials(credentials_payload)
 
     existing = (
         db.query(CloudProvider)
@@ -201,11 +179,11 @@ def list_aws_providers(db: Session = Depends(get_db)):
         arn = None
         region = "us-east-1"
         try:
-            creds = _decrypt_provider_credentials(provider)
+            creds = decrypt_credentials(provider.credentials_json)
             account_id = creds.get("account_id")
             arn = creds.get("arn")
             region = creds.get("region", region)
-        except HTTPException:
+        except Exception:
             pass
 
         result.append(
@@ -241,7 +219,7 @@ def get_aws_provider_resources(
     if not db_provider:
         raise HTTPException(status_code=404, detail="Provider not found")
 
-    creds = _decrypt_provider_credentials(db_provider)
+    creds = decrypt_credentials(db_provider.credentials_json)
     provider = get_provider(ProviderType.AWS, credentials=creds)
 
     vms = provider.list_vms()
@@ -397,7 +375,6 @@ def save_cloudstack_credentials(
     name = request.name or f"Opus {domain}/{account}"
 
     # Step 4: Encrypt credentials
-    fernet = _get_fernet()
     credentials_payload = {
         "api_url": str(request.api_url),
         "api_key": request.api_key,
@@ -407,7 +384,7 @@ def save_cloudstack_credentials(
         "account": account,
         "domain": domain,
     }
-    encrypted = fernet.encrypt(json.dumps(credentials_payload).encode()).decode()
+    encrypted = encrypt_credentials(credentials_payload)
 
     # Step 5: Upsert in DB (update if same api_url already saved)
     existing = (
@@ -465,14 +442,13 @@ def list_cloudstack_providers(db: Session = Depends(get_db)):
         .all()
     )
 
-    fernet = _get_fernet()
     result = []
     for p in providers:
         account = None
         domain = None
         api_url = ""
         try:
-            data = json.loads(fernet.decrypt(p.credentials_json.encode()).decode())
+            data = decrypt_credentials(p.credentials_json)
             account = data.get("account")
             domain = data.get("domain")
             api_url = data.get("api_url", "")
@@ -511,9 +487,8 @@ def get_provider_resources(
     if not db_provider:
         raise HTTPException(status_code=404, detail="Provider not found")
 
-    fernet = _get_fernet()
     try:
-        creds = json.loads(fernet.decrypt(db_provider.credentials_json.encode()).decode())
+        creds = decrypt_credentials(db_provider.credentials_json)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to decrypt credentials: {e}")
 

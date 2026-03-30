@@ -119,7 +119,7 @@ class CloudStackZonesList(BaseModel):
 
 
 # ============================================================================
-# AWS Schemas (for future use)
+# AWS Schemas
 # ============================================================================
 
 class AWSConfig(BaseModel):
@@ -166,7 +166,7 @@ class AWSSavedProvider(BaseModel):
 
 
 # ============================================================================
-# GCP Schemas (for future use)
+# GCP Schemas
 # ============================================================================
 
 class GCPConfig(BaseModel):
@@ -208,7 +208,7 @@ class GCPSavedProvider(BaseModel):
 
 
 # ============================================================================
-# Azure Schemas (for future use)
+# Azure Schemas
 # ============================================================================
 
 class AzureConfig(BaseModel):
@@ -241,7 +241,7 @@ class AzureTestResult(BaseModel):
 
 class AzureSaveRequest(AzureConfig):
     name: Optional[str] = Field(None, description="Friendly name for the Azure provider")
-    tenant_client_id: Optional[int] = Field(None, description="Client this provider belongs to")
+    client_id: Optional[int] = Field(None, description="Client this provider belongs to")
 
 
 class AzureSavedProvider(BaseModel):
@@ -255,7 +255,7 @@ class AzureSavedProvider(BaseModel):
 
 
 # ============================================================================
-# OCI Schemas (for future use)
+# OCI Schemas
 # ============================================================================
 
 class OCIConfig(BaseModel):
@@ -326,22 +326,3 @@ class OCISavedProvider(BaseModel):
     created_at: str
 
 
-# ============================================================================
-# Generic Configuration Test Request/Response
-# ============================================================================
-
-class ProviderConfigTest(BaseModel):
-    """Generic provider configuration test request."""
-    
-    provider_type: str = Field(..., description="Provider type (CLOUDSTACK, AWS, GCP, AZURE, OCI)")
-    config: Dict[str, Any] = Field(..., description="Provider configuration")
-
-
-class ProviderTestResult(BaseModel):
-    """Generic provider test result."""
-    
-    provider_type: str = Field(..., description="Provider type tested")
-    connected: bool = Field(..., description="Whether connection was successful")
-    timestamp: str = Field(..., description="Timestamp of test")
-    message: str = Field(..., description="Status message")
-    details: Optional[Dict[str, Any]] = Field(None, description="Additional details")

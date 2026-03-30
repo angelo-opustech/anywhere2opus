@@ -37,6 +37,7 @@ def get_provider(
             project_id=creds.get("project_id", settings.gcp_project_id or ""),
             service_account_key_file=creds.get("service_account_key_file", settings.gcp_service_account_key_file),
             service_account_key_json=creds.get("service_account_key_json", settings.gcp_service_account_key_json),
+            default_region=creds.get("default_region", "us-central1"),
         )
 
     if provider_type == ProviderType.AZURE:
@@ -45,6 +46,7 @@ def get_provider(
             tenant_id=creds.get("tenant_id", settings.azure_tenant_id or ""),
             client_id=creds.get("client_id", settings.azure_client_id or ""),
             client_secret=creds.get("client_secret", settings.azure_client_secret or ""),
+            default_location=creds.get("default_location", "eastus"),
         )
 
     if provider_type == ProviderType.OCI:
@@ -55,6 +57,7 @@ def get_provider(
             region=creds.get("region", settings.oci_region),
             private_key_file=creds.get("private_key_file", settings.oci_private_key_file),
             private_key_content=creds.get("private_key_content", settings.oci_private_key_content),
+            compartment_id=creds.get("compartment_id"),
         )
 
     if provider_type == ProviderType.CLOUDSTACK:

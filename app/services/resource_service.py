@@ -10,12 +10,6 @@ from app.services.provider_service import ProviderService
 
 logger = structlog.get_logger(__name__)
 
-_RESOURCE_TYPE_MAP = {
-    "vms": ResourceType.VM,
-    "storage": ResourceType.STORAGE,
-    "networks": ResourceType.NETWORK,
-}
-
 
 class ResourceService:
     """Service for discovering and syncing cloud resources into the database."""

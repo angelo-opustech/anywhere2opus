@@ -124,7 +124,6 @@ class MigrationService:
             )
 
             source_client = self._provider_service.get_provider_client(source_provider)
-            target_client = self._provider_service.get_provider_client(target_provider)
 
             resources: list = []
             if job.resources_json:

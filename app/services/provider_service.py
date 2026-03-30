@@ -1,19 +1,14 @@
-import json
 from typing import List, Optional
 
 import structlog
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.models.provider import CloudProvider, ProviderType
 from app.providers.base import BaseProvider
-from app.providers.aws import AWSProvider
-from app.providers.gcp import GCPProvider
-from app.providers.azure import AzureProvider
-from app.providers.oci import OCIProvider
-from app.providers.cloudstack import CloudStackProvider
+from app.providers.factory import get_provider
 from app.schemas.provider import CloudProviderCreate, CloudProviderUpdate
+from app.utils.crypto import decrypt_credentials, encrypt_credentials
 
 logger = structlog.get_logger(__name__)
 
@@ -61,7 +56,7 @@ class ProviderService:
             name=data.name,
             type=data.type,
             is_active=data.is_active,
-            credentials_json=data.credentials_to_json(),
+            credentials_json=encrypt_credentials(data.credentials) if data.credentials is not None else None,
             client_id=data.client_id,
         )
         self.db.add(provider)
@@ -79,7 +74,7 @@ class ProviderService:
         if data.is_active is not None:
             provider.is_active = data.is_active
         if data.credentials is not None:
-            provider.credentials_json = data.credentials_to_json()
+            provider.credentials_json = encrypt_credentials(data.credentials)
         self.db.commit()
         self.db.refresh(provider)
         logger.info("provider_updated", provider_id=provider_id)
@@ -97,70 +92,18 @@ class ProviderService:
     # ------------------------------------------------------------------
 
     def get_provider_client(self, provider_model: CloudProvider) -> BaseProvider:
-        """Instantiate and return the appropriate BaseProvider subclass for
-        the given CloudProvider ORM model.  Credentials stored in
-        ``credentials_json`` override the global settings from environment
-        variables so that per-provider credentials can be configured at
-        runtime through the API.
-        """
+        """Instantiate a provider client using stored credentials when available."""
         creds: dict = {}
         if provider_model.credentials_json:
             try:
-                creds = json.loads(provider_model.credentials_json)
-            except (json.JSONDecodeError, TypeError):
+                creds = decrypt_credentials(provider_model.credentials_json)
+            except Exception as exc:
                 logger.warning(
-                    "invalid_credentials_json", provider_id=provider_model.id
+                    "invalid_credentials_json",
+                    provider_id=provider_model.id,
+                    error=str(exc),
                 )
-
-        provider_type = provider_model.type
-
-        if provider_type == ProviderType.AWS:
-            return AWSProvider(
-                access_key_id=creds.get("aws_access_key_id") or settings.aws_access_key_id or "",
-                secret_access_key=creds.get("aws_secret_access_key") or settings.aws_secret_access_key or "",
-                region=creds.get("region") or settings.aws_default_region,
-                session_token=creds.get("aws_session_token") or settings.aws_session_token,
-            )
-
-        if provider_type == ProviderType.GCP:
-            return GCPProvider(
-                project_id=creds.get("project_id") or settings.gcp_project_id or "",
-                service_account_key_file=creds.get("service_account_key_file")
-                or settings.gcp_service_account_key_file,
-                service_account_key_json=creds.get("service_account_key_json")
-                or settings.gcp_service_account_key_json,
-                default_region=creds.get("region", "us-central1"),
-            )
-
-        if provider_type == ProviderType.AZURE:
-            return AzureProvider(
-                subscription_id=creds.get("subscription_id") or settings.azure_subscription_id or "",
-                tenant_id=creds.get("tenant_id") or settings.azure_tenant_id or "",
-                client_id=creds.get("client_id") or settings.azure_client_id or "",
-                client_secret=creds.get("client_secret") or settings.azure_client_secret or "",
-                default_location=creds.get("location", "eastus"),
-            )
-
-        if provider_type == ProviderType.OCI:
-            return OCIProvider(
-                user_ocid=creds.get("user_ocid") or settings.oci_user_ocid or "",
-                fingerprint=creds.get("fingerprint") or settings.oci_fingerprint or "",
-                tenancy_ocid=creds.get("tenancy_ocid") or settings.oci_tenancy_ocid or "",
-                region=creds.get("region") or settings.oci_region,
-                private_key_file=creds.get("private_key_file") or settings.oci_private_key_file,
-                private_key_content=creds.get("private_key_content") or settings.oci_private_key_content,
-                compartment_id=creds.get("compartment_id"),
-            )
-
-        if provider_type == ProviderType.CLOUDSTACK:
-            return CloudStackProvider(
-                api_url=creds.get("api_url") or settings.opus_url or "",
-                api_key=creds.get("api_key") or settings.opus_api_key or "",
-                secret_key=creds.get("secret_key") or settings.opus_secret_key or "",
-                zone_id=creds.get("zone_id") or settings.opus_zone_id,
-            )
-
-        raise ValueError(f"Unsupported provider type: {provider_type}")
+        return get_provider(provider_model.type, credentials=creds)
 
     def test_connection(self, provider_id: int) -> bool:
         """Test connectivity for a provider.  Returns True if successful."""

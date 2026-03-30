@@ -73,12 +73,12 @@ app.include_router(migrations_router, prefix=API_PREFIX)
 app.include_router(configuration_router, prefix=API_PREFIX)
 app.include_router(configuration_new_providers_router, prefix=API_PREFIX)
 app.include_router(clients_router, prefix=API_PREFIX)
-app.include_router(providers_router, prefix=PUBLISHED_API_PREFIX)
-app.include_router(resources_router, prefix=PUBLISHED_API_PREFIX)
-app.include_router(migrations_router, prefix=PUBLISHED_API_PREFIX)
-app.include_router(configuration_router, prefix=PUBLISHED_API_PREFIX)
-app.include_router(configuration_new_providers_router, prefix=PUBLISHED_API_PREFIX)
-app.include_router(clients_router, prefix=PUBLISHED_API_PREFIX)
+app.include_router(providers_router, prefix=PUBLISHED_API_PREFIX, include_in_schema=False)
+app.include_router(resources_router, prefix=PUBLISHED_API_PREFIX, include_in_schema=False)
+app.include_router(migrations_router, prefix=PUBLISHED_API_PREFIX, include_in_schema=False)
+app.include_router(configuration_router, prefix=PUBLISHED_API_PREFIX, include_in_schema=False)
+app.include_router(configuration_new_providers_router, prefix=PUBLISHED_API_PREFIX, include_in_schema=False)
+app.include_router(clients_router, prefix=PUBLISHED_API_PREFIX, include_in_schema=False)
 
 # ---------------------------------------------------------------------------
 # Static Files

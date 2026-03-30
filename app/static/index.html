@@ -1451,11 +1451,7 @@
         try {
             const savePayload = Object.assign({}, lastTest.payload);
             if (activeClientId) {
-                if (activeProvider === 'azure') {
-                    savePayload.tenant_client_id = activeClientId;
-                } else {
-                    savePayload.client_id = activeClientId;
-                }
+                savePayload.client_id = activeClientId;
             }
             const response = await fetch(buildApiUrl(provider.saveEndpoint), {
                 method: 'POST',

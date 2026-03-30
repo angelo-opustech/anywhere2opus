@@ -52,11 +52,6 @@ class CloudProviderRead(CloudProviderBase):
 
     model_config = {"from_attributes": True}
 
-    @classmethod
-    def from_orm_with_credentials(cls, obj) -> "CloudProviderRead":
-        instance = cls.model_validate(obj)
-        return instance
-
 
 class CloudProviderList(BaseModel):
     total: int
