@@ -70,3 +70,11 @@ class BaseProvider(ABC):
             return True
         except Exception:
             return False
+
+    def list_load_balancers(self, region: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List all load balancers.  Override in providers that support them."""
+        return []
+
+    def list_databases(self, region: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List all managed database services.  Override in providers that support them."""
+        return []

@@ -135,6 +135,38 @@ class ResourceService:
             logger.error("sync_networks_error", provider_id=provider_id, error=str(e))
             summary["errors"].append({"type": "NETWORK", "error": str(e)})
 
+        # Load Balancers
+        try:
+            lbs = client.list_load_balancers(region=region)
+            lb_counts = self._upsert_resources(
+                provider_id=provider_id,
+                resource_type=ResourceType.LOADBALANCER,
+                items=lbs,
+            )
+            summary["loadbalancers_created"] = lb_counts["created"]
+            summary["loadbalancers_updated"] = lb_counts["updated"]
+            summary["created"] += lb_counts["created"]
+            summary["updated"] += lb_counts["updated"]
+        except Exception as e:
+            logger.error("sync_loadbalancers_error", provider_id=provider_id, error=str(e))
+            summary["errors"].append({"type": "LOADBALANCER", "error": str(e)})
+
+        # Databases
+        try:
+            dbs = client.list_databases(region=region)
+            db_counts = self._upsert_resources(
+                provider_id=provider_id,
+                resource_type=ResourceType.DATABASE,
+                items=dbs,
+            )
+            summary["databases_created"] = db_counts["created"]
+            summary["databases_updated"] = db_counts["updated"]
+            summary["created"] += db_counts["created"]
+            summary["updated"] += db_counts["updated"]
+        except Exception as e:
+            logger.error("sync_databases_error", provider_id=provider_id, error=str(e))
+            summary["errors"].append({"type": "DATABASE", "error": str(e)})
+
         logger.info("sync_completed", **summary)
         return summary
 
