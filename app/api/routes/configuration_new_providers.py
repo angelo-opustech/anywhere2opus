@@ -628,18 +628,44 @@ def get_oci_provider_resources(provider_id: int, db: Session = Depends(get_db)):
     provider = get_provider(ProviderType.OCI, credentials=creds)
 
     vms = provider.list_vms()
-    volumes = provider.list_storage()
-    buckets = provider.list_buckets()
-    networks = provider.list_networks()
-    regions = provider.list_regions()
+    # Split storage by disk_class
+    all_storage = provider.list_storage()
+    flash_volumes = [s for s in all_storage if (s.get("specs") or {}).get("disk_class") == "flash"]
+    sas_volumes   = [s for s in all_storage if (s.get("specs") or {}).get("disk_class") == "sas"]
+    buckets       = [s for s in all_storage if (s.get("specs") or {}).get("disk_class") not in ("flash", "sas")]
+    networks      = provider.list_networks()
+    regions       = provider.list_regions()
+
+    # Optional resources — return empty list on error so UI doesn't break
+    try:
+        load_balancers = provider.list_load_balancers()
+    except Exception:
+        load_balancers = []
+    try:
+        databases = provider.list_databases()
+    except Exception:
+        databases = []
+    try:
+        file_storage = provider.list_file_storage()
+    except Exception:
+        file_storage = []
+    try:
+        kubernetes = provider.list_kubernetes()
+    except Exception:
+        kubernetes = []
 
     logger.info(
         "oci_resources_fetched",
         provider_id=provider_id,
         vms=len(vms),
-        volumes=len(volumes),
+        flash_volumes=len(flash_volumes),
+        sas_volumes=len(sas_volumes),
         buckets=len(buckets),
         networks=len(networks),
+        load_balancers=len(load_balancers),
+        databases=len(databases),
+        file_storage=len(file_storage),
+        kubernetes=len(kubernetes),
     )
 
     return {
@@ -647,16 +673,26 @@ def get_oci_provider_resources(provider_id: int, db: Session = Depends(get_db)):
         "provider_name": db_provider.name,
         "summary": {
             "virtual_machines": len(vms),
-            "volumes": len(volumes),
+            "flash_volumes": len(flash_volumes),
+            "sas_volumes": len(sas_volumes),
             "buckets": len(buckets),
             "networks": len(networks),
+            "load_balancers": len(load_balancers),
+            "databases": len(databases),
+            "file_storage": len(file_storage),
+            "kubernetes": len(kubernetes),
             "regions": len(regions),
         },
         "resources": {
             "virtual_machines": vms,
-            "volumes": volumes,
+            "flash_volumes": flash_volumes,
+            "sas_volumes": sas_volumes,
             "buckets": buckets,
             "networks": networks,
+            "load_balancers": load_balancers,
+            "databases": databases,
+            "file_storage": file_storage,
+            "kubernetes": kubernetes,
         },
         "catalog": {
             "regions": regions,

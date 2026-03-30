@@ -431,6 +431,10 @@
         .status-stopped, .status-failed, .status-error, .status-terminated { background: #fee2e2; color: #991b1b; }
         .status-pending, .status-stopping, .status-shutting-down { background: #fef3c7; color: #92400e; }
         .status-other, .status-allocated, .status-implemented { background: #dbeafe; color: #1d4ed8; }
+        /* Generic disk-class pills */
+        .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+        .pill-green { background: #dcfce7; color: #166534; }
+        .pill-blue  { background: #dbeafe; color: #1d4ed8; }
 
         .footer {
             text-align: center;
@@ -771,15 +775,23 @@
             saveLabel: 'Salvar credenciais OCI',
             summaryCards: [
                 { key: 'virtual_machines', label: 'VMs' },
-                { key: 'volumes', label: 'Volumes' },
+                { key: 'flash_volumes', label: 'Flash' },
+                { key: 'sas_volumes', label: 'SAS' },
                 { key: 'buckets', label: 'Buckets' },
                 { key: 'networks', label: 'VCNs' },
+                { key: 'load_balancers', label: 'LBs' },
+                { key: 'databases', label: 'DBs' },
             ],
             navItems: [
                 { key: 'virtual_machines', label: 'Instâncias Compute', kind: 'resource' },
-                { key: 'volumes', label: 'Block Storage', kind: 'resource' },
+                { key: 'flash_volumes', label: 'Discos Flash (NVMe)', kind: 'resource' },
+                { key: 'sas_volumes', label: 'Discos SAS (Block)', kind: 'resource' },
                 { key: 'buckets', label: 'Object Storage', kind: 'resource' },
                 { key: 'networks', label: 'Virtual Cloud Networks', kind: 'resource' },
+                { key: 'load_balancers', label: 'Load Balancers', kind: 'resource' },
+                { key: 'databases', label: 'Bancos de Dados', kind: 'resource' },
+                { key: 'file_storage', label: 'File Storage (NFS)', kind: 'resource' },
+                { key: 'kubernetes', label: 'Kubernetes (OKE)', kind: 'resource' },
                 { divider: true, label: 'Catálogo' },
                 { key: 'regions', label: 'Regiões', kind: 'catalog' },
             ],
@@ -916,11 +928,16 @@
             regions: (items) => renderGenericTable(items, ['name', 'display_name']),
         },
         oci: {
-            virtual_machines: (items) => renderGenericTable(items, ['name', 'status', 'shape', 'availability_domain']),
-            volumes: (items) => renderGenericTable(items, ['name', 'size_gb', 'lifecycle_state', 'availability_domain']),
-            buckets: (items) => renderGenericTable(items, ['name', 'storage_tier', 'time_created']),
-            networks: (items) => renderGenericTable(items, ['name', 'lifecycle_state', 'cidr']),
-            regions: (items) => renderGenericTable(items, ['name', 'key']),
+            virtual_machines: (items) => renderOciVMs(items),
+            flash_volumes:     (items) => renderOciVolumes(items, 'flash'),
+            sas_volumes:       (items) => renderOciVolumes(items, 'sas'),
+            buckets:           (items) => renderOciBuckets(items),
+            networks:          (items) => renderOciNetworks(items),
+            load_balancers:    (items) => renderOciLoadBalancers(items),
+            databases:         (items) => renderOciDatabases(items),
+            file_storage:      (items) => renderOciFileStorage(items),
+            kubernetes:        (items) => renderOciKubernetes(items),
+            regions:           (items) => renderGenericTable(items, ['name', 'key']),
         },
     };
 
@@ -1453,6 +1470,177 @@
             items.map((item) => '<tr><td><span class="resource-name">' + escapeHtml(item.name || '-') + '</span></td><td class="mono text-muted text-small">' + escapeHtml(item.id || '-') + '</td></tr>').join('') +
             '</tbody></table>';
     }
+
+    // ── OCI dedicated renderers ──────────────────────────────────────────────
+
+    function renderOciVMs(items) {
+        if (!items.length) return emptyTable('Nenhuma instância Compute encontrada.');
+        return '<table class="res-table"><thead><tr>' +
+            '<th>Nome</th><th>Status</th><th>Shape</th><th>OCPUs</th><th>RAM (GB)</th>' +
+            '<th>Flash</th><th>SAS</th><th>IP Privado</th><th>AD</th>' +
+            '</tr></thead><tbody>' +
+            items.map(function(item) {
+                var s = item.specs || {};
+                var flash = s.flash_disks || [];
+                var sas   = s.sas_disks   || [];
+                var flashSummary = flash.length
+                    ? flash.map(function(d) { return (d.count || 1) + '×' + (d.total_size_gb || d.size_gb || '?') + 'GB'; }).join(', ')
+                    : '-';
+                var sasSummary = sas.length
+                    ? sas.map(function(d) { return '1×' + (d.size_gb || '?') + 'GB'; }).join(', ')
+                    : '-';
+                var primaryVnic = (s.network && s.network.vnics || []).find(function(v) { return v.is_primary; }) || (s.network && s.network.vnics || [])[0];
+                var ip = primaryVnic ? (primaryVnic.private_ip || '-') : '-';
+                return '<tr>' +
+                    '<td><span class="resource-name">' + statusDot(item.status) + escapeHtml(item.name || '-') + '</span></td>' +
+                    '<td>' + statusPill(item.status) + '</td>' +
+                    '<td class="text-small">' + escapeHtml(s.shape || '-') + '</td>' +
+                    '<td>' + escapeHtml(s.ocpus != null ? String(s.ocpus) : '-') + '</td>' +
+                    '<td>' + escapeHtml(s.memory_gb != null ? String(s.memory_gb) + ' GB' : '-') + '</td>' +
+                    '<td class="text-small">' + escapeHtml(flashSummary) + '</td>' +
+                    '<td class="text-small">' + escapeHtml(sasSummary) + '</td>' +
+                    '<td class="mono">' + escapeHtml(ip) + '</td>' +
+                    '<td class="text-small text-muted">' + escapeHtml(s.availability_domain || item.region || '-') + '</td>' +
+                '</tr>';
+            }).join('') + '</tbody></table>';
+    }
+
+    function renderOciVolumes(items, diskClass) {
+        var label = diskClass === 'flash' ? 'Discos Flash (NVMe)' : 'Discos SAS (Block)';
+        if (!items.length) return emptyTable('Nenhum ' + label + ' encontrado.');
+        return '<table class="res-table"><thead><tr>' +
+            '<th>Nome</th><th>Tipo</th><th>Tamanho</th><th>Classe</th><th>VPUs/GB</th><th>AD</th><th>Estado</th>' +
+            '</tr></thead><tbody>' +
+            items.map(function(item) {
+                var s = item.specs || {};
+                return '<tr>' +
+                    '<td><span class="resource-name">' + escapeHtml(item.name || '-') + '</span></td>' +
+                    '<td>' + escapeHtml(item.type || '-') + '</td>' +
+                    '<td>' + escapeHtml(item.size_gb != null ? item.size_gb + ' GB' : '-') + '</td>' +
+                    '<td><span class="' + (s.disk_class === 'flash' ? 'pill pill-green' : 'pill pill-blue') + '">' +
+                        escapeHtml((s.disk_class || '-').toUpperCase()) + '</span></td>' +
+                    '<td>' + escapeHtml(s.vpus_per_gb != null ? String(s.vpus_per_gb) : '-') + '</td>' +
+                    '<td class="text-small text-muted">' + escapeHtml(s.availability_domain || '-') + '</td>' +
+                    '<td>' + statusPill(s.lifecycle_state) + '</td>' +
+                '</tr>';
+            }).join('') + '</tbody></table>';
+    }
+
+    function renderOciBuckets(items) {
+        if (!items.length) return emptyTable('Nenhum bucket Object Storage encontrado.');
+        return '<table class="res-table"><thead><tr><th>Bucket</th><th>Tier</th><th>Criado em</th><th>Região</th></tr></thead><tbody>' +
+            items.map(function(item) {
+                var s = item.specs || {};
+                return '<tr>' +
+                    '<td><span class="resource-name mono">' + escapeHtml(item.name || '-') + '</span></td>' +
+                    '<td>' + escapeHtml(s.storage_tier || '-') + '</td>' +
+                    '<td>' + escapeHtml(s.time_created ? s.time_created.substring(0, 19).replace('T', ' ') : '-') + '</td>' +
+                    '<td>' + escapeHtml(item.region || '-') + '</td>' +
+                '</tr>';
+            }).join('') + '</tbody></table>';
+    }
+
+    function renderOciNetworks(items) {
+        if (!items.length) return emptyTable('Nenhuma VCN encontrada.');
+        return '<table class="res-table"><thead><tr>' +
+            '<th>Nome</th><th>CIDR</th><th>Subnets</th><th>IGW</th><th>NAT</th><th>Estado</th>' +
+            '</tr></thead><tbody>' +
+            items.map(function(item) {
+                var s = item.specs || {};
+                return '<tr>' +
+                    '<td><span class="resource-name">' + escapeHtml(item.name || '-') + '</span></td>' +
+                    '<td class="mono">' + escapeHtml(item.cidr || '-') + '</td>' +
+                    '<td>' + escapeHtml(String((s.subnets || []).length)) + '</td>' +
+                    '<td>' + escapeHtml(String((s.internet_gateways || []).length)) + '</td>' +
+                    '<td>' + escapeHtml(String((s.nat_gateways || []).length)) + '</td>' +
+                    '<td>' + statusPill(s.lifecycle_state) + '</td>' +
+                '</tr>';
+            }).join('') + '</tbody></table>';
+    }
+
+    function renderOciLoadBalancers(items) {
+        if (!items.length) return emptyTable('Nenhum Load Balancer encontrado.');
+        return '<table class="res-table"><thead><tr>' +
+            '<th>Nome</th><th>Status</th><th>Shape</th><th>IPs</th><th>Listeners</th><th>Backends</th><th>Privado</th>' +
+            '</tr></thead><tbody>' +
+            items.map(function(item) {
+                var s = item.specs || {};
+                var listenerCount = Object.keys(s.listeners || {}).length;
+                var backendCount  = Object.values(s.backend_sets || {}).reduce(function(acc, bs) { return acc + (bs.backends || []).length; }, 0);
+                return '<tr>' +
+                    '<td><span class="resource-name">' + statusDot(item.status) + escapeHtml(item.name || '-') + '</span></td>' +
+                    '<td>' + statusPill(item.status) + '</td>' +
+                    '<td>' + escapeHtml(s.shape_name || '-') + '</td>' +
+                    '<td class="mono text-small">' + escapeHtml((s.ip_addresses || []).join(', ') || '-') + '</td>' +
+                    '<td>' + escapeHtml(String(listenerCount)) + '</td>' +
+                    '<td>' + escapeHtml(String(backendCount)) + '</td>' +
+                    '<td>' + escapeHtml(s.is_private ? 'Sim' : 'Não') + '</td>' +
+                '</tr>';
+            }).join('') + '</tbody></table>';
+    }
+
+    function renderOciDatabases(items) {
+        if (!items.length) return emptyTable('Nenhum banco de dados encontrado.');
+        return '<table class="res-table"><thead><tr>' +
+            '<th>Nome</th><th>Status</th><th>Tipo</th><th>Shape / Workload</th><th>CPUs</th><th>Storage</th>' +
+            '</tr></thead><tbody>' +
+            items.map(function(item) {
+                var s = item.specs || {};
+                var shapeOrWorkload = s.shape || s.workload_type || '-';
+                return '<tr>' +
+                    '<td><span class="resource-name">' + statusDot(item.status) + escapeHtml(item.name || '-') + '</span></td>' +
+                    '<td>' + statusPill(item.status) + '</td>' +
+                    '<td>' + escapeHtml(s.db_type || '-') + '</td>' +
+                    '<td class="text-small">' + escapeHtml(shapeOrWorkload) + '</td>' +
+                    '<td>' + escapeHtml(s.cpu_core_count != null ? String(s.cpu_core_count) : '-') + '</td>' +
+                    '<td>' + escapeHtml(s.data_storage_size_gb != null ? s.data_storage_size_gb + ' GB' : '-') + '</td>' +
+                '</tr>';
+            }).join('') + '</tbody></table>';
+    }
+
+    function renderOciFileStorage(items) {
+        if (!items.length) return emptyTable('Nenhum File System (NFS) encontrado.');
+        return '<table class="res-table"><thead><tr>' +
+            '<th>Nome</th><th>Uso</th><th>Classe</th><th>Mount Targets</th><th>AD</th><th>Estado</th>' +
+            '</tr></thead><tbody>' +
+            items.map(function(item) {
+                var s = item.specs || {};
+                var usageGb = s.metered_bytes != null ? (s.metered_bytes / 1073741824).toFixed(2) + ' GB' : '-';
+                var mtCount = (s.mount_targets || []).length;
+                return '<tr>' +
+                    '<td><span class="resource-name">' + escapeHtml(item.name || '-') + '</span></td>' +
+                    '<td>' + escapeHtml(usageGb) + '</td>' +
+                    '<td><span class="pill pill-green">FLASH</span></td>' +
+                    '<td>' + escapeHtml(String(mtCount)) + '</td>' +
+                    '<td class="text-small text-muted">' + escapeHtml(s.availability_domain || '-') + '</td>' +
+                    '<td>' + statusPill(s.lifecycle_state) + '</td>' +
+                '</tr>';
+            }).join('') + '</tbody></table>';
+    }
+
+    function renderOciKubernetes(items) {
+        if (!items.length) return emptyTable('Nenhum cluster OKE encontrado.');
+        return '<table class="res-table"><thead><tr>' +
+            '<th>Nome</th><th>Status</th><th>K8s</th><th>Node Pools</th><th>OCPUs totais</th><th>RAM total</th><th>Flash</th><th>SAS</th>' +
+            '</tr></thead><tbody>' +
+            items.map(function(item) {
+                var s = item.specs || {};
+                var flashPools = (s.flash_disks || []).reduce(function(acc, d) { return acc + (d.node_count || 0); }, 0);
+                var sasPools   = (s.sas_disks   || []).reduce(function(acc, d) { return acc + (d.node_count || 0); }, 0);
+                return '<tr>' +
+                    '<td><span class="resource-name">' + statusDot(item.status) + escapeHtml(item.name || '-') + '</span></td>' +
+                    '<td>' + statusPill(item.status) + '</td>' +
+                    '<td class="mono text-small">' + escapeHtml(s.kubernetes_version || '-') + '</td>' +
+                    '<td>' + escapeHtml(String((s.node_pools || []).length)) + '</td>' +
+                    '<td>' + escapeHtml(s.total_ocpus != null ? String(s.total_ocpus) : '-') + '</td>' +
+                    '<td>' + escapeHtml(s.total_memory_gb != null ? s.total_memory_gb + ' GB' : '-') + '</td>' +
+                    '<td>' + escapeHtml(flashPools > 0 ? flashPools + ' nós' : '-') + '</td>' +
+                    '<td>' + escapeHtml(sasPools > 0 ? sasPools + ' nós' : '-') + '</td>' +
+                '</tr>';
+            }).join('') + '</tbody></table>';
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
 
     function renderGenericTable(items, columns) {
         if (!items.length) return emptyTable('Nenhum item encontrado.');
