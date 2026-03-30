@@ -147,10 +147,10 @@ class ProviderService:
 
         if provider_type == ProviderType.CLOUDSTACK:
             return CloudStackProvider(
-                api_url=creds.get("api_url") or settings.cloudstack_url or "",
-                api_key=creds.get("api_key") or settings.cloudstack_api_key or "",
-                secret_key=creds.get("secret_key") or settings.cloudstack_secret_key or "",
-                zone_id=creds.get("zone_id") or settings.cloudstack_zone_id,
+                api_url=creds.get("api_url") or settings.opus_url or "",
+                api_key=creds.get("api_key") or settings.opus_api_key or "",
+                secret_key=creds.get("secret_key") or settings.opus_secret_key or "",
+                zone_id=creds.get("zone_id") or settings.opus_zone_id,
             )
 
         raise ValueError(f"Unsupported provider type: {provider_type}")

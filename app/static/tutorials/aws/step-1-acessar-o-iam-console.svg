@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="768" xmlns="http://www.w3.org/2000/svg">
+    <!-- Fundo -->
+    <rect width="1024" height="768" fill="#f5f6fa"/>
+    
+    <!-- Cabeçalho -->
+    <rect width="1024" height="120" fill="#7c3aed"/>
+    
+    <!-- Número do passo -->
+    <text x="40" y="60" font-size="36" font-weight="bold" fill="white" font-family="Arial">
+        PASSO 1: Acessar o IAM Console
+    </text>
+    
+    <!-- Provedor no canto superior direito -->
+    <text x="700" y="60" font-size="18" fill="white" font-family="Arial">
+        Provedor: AWS
+    </text>
+    
+    <!-- Linha divisória -->
+    <line x1="40" y1="140" x2="984" y2="140" stroke="#e2e8f0" stroke-width="2"/>
+    
+    <!-- Instruções -->
+    <text x="60" y="200" font-size="16" fill="#94a3b8" font-family="Arial">
+        Substitua esta imagem por um screenshot real do passo
+    </text>
+    
+    <!-- Caixa de conteúdo -->
+    <rect x="40" y="240" width="944" height="450" fill="white" stroke="#7c3aed" stroke-width="2" rx="8"/>
+    
+    <!-- Ícone de câmera centralizado -->
+    <text x="480" y="420" font-size="120" text-anchor="middle" fill="#94a3b8">📸</text>
+    
+    <!-- Texto central -->
+    <text x="512" y="500" font-size="18" text-anchor="middle" fill="#94a3b8" font-family="Arial">
+        Adicione um screenshot aqui
+    </text>
+    <text x="512" y="530" font-size="14" text-anchor="middle" fill="#cbd5e1" font-family="Arial">
+        Resolução mínima: 1024x768px
+    </text>
+    
+    <!-- Rodapé com instruções -->
+    <text x="60" y="720" font-size="12" fill="#94a3b8" font-family="Arial">
+        Veja README.md para instruções de como adicionar screenshots reais
+    </text>
+</svg>

@@ -242,6 +242,81 @@ class CloudStackProvider(BaseProvider):
             })
         return zones
 
+    def list_public_ips(self, region: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List allocated public IP addresses."""
+        params: Dict[str, Any] = {"listall": "true", "allocatedonly": "true"}
+        if region:
+            params["zoneid"] = region
+        try:
+            result = self._make_request("listPublicIpAddresses", params)
+            ips_data = result.get("listpublicipaddressesresponse", {}).get("publicipaddress", [])
+            return [
+                {
+                    "id": ip["id"],
+                    "ip_address": ip.get("ipaddress"),
+                    "region": ip.get("zonename", ""),
+                    "state": ip.get("state"),
+                    "allocated": ip.get("allocated"),
+                    "associated_network": ip.get("associatednetworkname"),
+                    "is_source_nat": ip.get("issourcenat", False),
+                    "is_static_nat": ip.get("isstaticnat", False),
+                    "vm_name": ip.get("virtualmachinename"),
+                }
+                for ip in ips_data
+            ]
+        except Exception as e:
+            logger.warning("cloudstack_list_public_ips_failed", error=str(e))
+            return []
+
+    def list_service_offerings(self) -> List[Dict[str, Any]]:
+        """List available service offerings (compute plans)."""
+        try:
+            result = self._make_request("listServiceOfferings", {"listall": "true"})
+            offerings = result.get("listserviceofferingsresponse", {}).get("serviceoffering", [])
+            return [
+                {
+                    "id": o["id"],
+                    "name": o.get("name"),
+                    "display_text": o.get("displaytext"),
+                    "cpunumber": o.get("cpunumber"),
+                    "cpuspeed": o.get("cpuspeed"),
+                    "memory_mb": o.get("memory"),
+                    "storage_type": o.get("storagetype"),
+                }
+                for o in offerings
+            ]
+        except Exception as e:
+            logger.warning("cloudstack_list_service_offerings_failed", error=str(e))
+            return []
+
+    def list_templates(self, template_filter: str = "self") -> List[Dict[str, Any]]:
+        """List available templates.
+
+        Args:
+            template_filter: 'self' (own templates), 'featured', 'community', 'all'
+        """
+        try:
+            result = self._make_request("listTemplates", {"templatefilter": template_filter, "listall": "true"})
+            templates = result.get("listtemplatesresponse", {}).get("template", [])
+            return [
+                {
+                    "id": t["id"],
+                    "name": t.get("name"),
+                    "display_text": t.get("displaytext"),
+                    "os_type": t.get("ostypename"),
+                    "region": t.get("zonename", ""),
+                    "size_gb": (t.get("size", 0) or 0) // (1024 ** 3),
+                    "status": t.get("status"),
+                    "is_public": t.get("ispublic", False),
+                    "hypervisor": t.get("hypervisor"),
+                    "created": t.get("created"),
+                }
+                for t in templates
+            ]
+        except Exception as e:
+            logger.warning("cloudstack_list_templates_failed", error=str(e))
+            return []
+
     def test_connection(self) -> bool:
         """Test connection to CloudStack API."""
         try:
@@ -367,4 +442,3 @@ class CloudStackProvider(BaseProvider):
             logger.info("cloudstack_register_template", name=name, id=templates[0]["id"])
             return templates[0]
         return {}
-

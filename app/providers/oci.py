@@ -28,6 +28,15 @@ class OCIProvider(BaseProvider):
         self.compartment_id = compartment_id or tenancy_ocid
         self._config = self._build_config()
 
+    def _normalize_key(self, key_content: str) -> str:
+        """Normalize key content received from UI or stored credentials."""
+        if not key_content:
+            return key_content
+
+        normalized = key_content.replace('\\n', '\n')
+        normalized = normalized.strip()
+        return normalized
+
     def _build_config(self) -> Dict[str, Any]:
         import oci
 
@@ -38,7 +47,7 @@ class OCIProvider(BaseProvider):
             "region": self.region,
         }
         if self.private_key_content:
-            config["key_content"] = self.private_key_content
+            config["key_content"] = self._normalize_key(self.private_key_content)
         elif self.private_key_file:
             config["key_file"] = self.private_key_file
         else:
@@ -47,7 +56,7 @@ class OCIProvider(BaseProvider):
         try:
             oci.config.validate_config(config)
         except Exception as e:
-            logger.error("oci_config_error", error=str(e))
+            logger.error("oci_config_error", error=str(e), config_keys=list(config.keys()))
             raise RuntimeError(f"OCI config validation failed: {e}") from e
         return config
 
@@ -66,6 +75,29 @@ class OCIProvider(BaseProvider):
     def _identity_client(self):
         import oci
         return oci.identity.IdentityClient(self._config)
+
+    def get_tenancy_info(self) -> Dict[str, Any]:
+        client = self._identity_client()
+        try:
+            tenancy = client.get_tenancy(tenancy_id=self.tenancy_ocid)
+            return {
+                "tenancy_ocid": self.tenancy_ocid,
+                "tenancy_name": tenancy.data.name,
+                "user_ocid": self.user_ocid,
+                "region": self.region,
+                "home_region": tenancy.data.home_region_key,
+            }
+        except Exception as e:
+            logger.error("oci_get_tenancy_info_error", error=str(e))
+            raise RuntimeError(f"OCI get_tenancy_info failed: {e}") from e
+
+    def test_connection(self) -> bool:
+        try:
+            self.get_tenancy_info()
+            self.list_regions()
+            return True
+        except Exception:
+            return False
 
     def list_vms(self, region: Optional[str] = None) -> List[Dict[str, Any]]:
         client = self._compute_client()
@@ -229,3 +261,28 @@ class OCIProvider(BaseProvider):
             logger.error("oci_list_regions_error", error=str(e))
             raise RuntimeError(f"OCI list_regions failed: {e}") from e
         return regions
+
+    def list_buckets(self) -> List[Dict[str, Any]]:
+        from oci.object_storage import ObjectStorageClient
+        buckets = []
+        try:
+            client = ObjectStorageClient(self._config)
+            namespace_response = client.get_namespace()
+            namespace = namespace_response.data
+            response = client.list_buckets(namespace_name=namespace, compartment_id=self.compartment_id)
+            for bucket in response.data:
+                buckets.append({
+                    "id": bucket.name,
+                    "name": bucket.name,
+                    "region": self.region,
+                    "type": "OSS",
+                    "specs": {
+                        "storage_tier": bucket.storage_tier,
+                        "time_created": bucket.time_created.isoformat() if bucket.time_created else None,
+                        "freeform_tags": bucket.freeform_tags or {},
+                    },
+                })
+        except Exception as e:
+            logger.error("oci_list_buckets_error", error=str(e))
+            raise RuntimeError(f"OCI list_buckets failed: {e}") from e
+        return buckets

@@ -55,11 +55,11 @@ class Settings(BaseSettings):
     oci_private_key_file: Optional[str] = None
     oci_private_key_content: Optional[str] = None
 
-    # CloudStack / Opus
-    cloudstack_url: Optional[str] = None
-    cloudstack_api_key: Optional[str] = None
-    cloudstack_secret_key: Optional[str] = None
-    cloudstack_zone_id: Optional[str] = None
+    # Opus
+    opus_url: Optional[str] = None
+    opus_api_key: Optional[str] = None
+    opus_secret_key: Optional[str] = None
+    opus_zone_id: Optional[str] = None
 
 
 settings = Settings()

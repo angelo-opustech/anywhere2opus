@@ -68,6 +68,29 @@ class GCPProvider(BaseProvider):
         from google.cloud import compute_v1
         return compute_v1.NetworksClient(credentials=self._credentials)
 
+    def get_project_info(self) -> Dict[str, Any]:
+        from google.cloud import resourcemanager
+        try:
+            rm_client = resourcemanager.Client(credentials=self._credentials)
+            project = rm_client.fetch_project(self.project_id)
+            return {
+                "project_id": self.project_id,
+                "project_name": project.name,
+                "default_region": self.default_region,
+                "project_number": project.number,
+            }
+        except Exception as e:
+            logger.error("gcp_get_project_info_error", error=str(e))
+            raise RuntimeError(f"GCP get_project_info failed: {e}") from e
+
+    def test_connection(self) -> bool:
+        try:
+            self.get_project_info()
+            self.list_regions()
+            return True
+        except Exception:
+            return False
+
     def list_vms(self, region: Optional[str] = None) -> List[Dict[str, Any]]:
         client = self._instances_client()
         vms = []

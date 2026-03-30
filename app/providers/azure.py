@@ -52,6 +52,29 @@ class AzureProvider(BaseProvider):
         from azure.mgmt.resource import ResourceManagementClient
         return ResourceManagementClient(self._credential, self.subscription_id)
 
+    def get_account_info(self) -> Dict[str, Any]:
+        try:
+            # Try to call list_vms to validate credentials actually work
+            self.list_vms()
+            return {
+                "subscription_id": self.subscription_id,
+                "tenant_id": self.tenant_id,
+                "subscription_name": f"Subscription-{self.subscription_id[:8]}",
+                "default_location": self.default_location,
+                "state": "Enabled",
+            }
+        except Exception as e:
+            logger.error("azure_get_account_info_error", error=str(e))
+            raise RuntimeError(f"Azure get_account_info failed: {e}") from e
+
+    def test_connection(self) -> bool:
+        try:
+            self.get_account_info()
+            self.list_regions()
+            return True
+        except Exception:
+            return False
+
     def list_vms(self, region: Optional[str] = None) -> List[Dict[str, Any]]:
         compute = self._compute_client()
         vms = []

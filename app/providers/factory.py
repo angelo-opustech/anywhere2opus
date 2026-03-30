@@ -59,10 +59,10 @@ def get_provider(
 
     if provider_type == ProviderType.CLOUDSTACK:
         return CloudStackProvider(
-            api_url=creds.get("api_url", settings.cloudstack_url or ""),
-            api_key=creds.get("api_key", settings.cloudstack_api_key or ""),
-            secret_key=creds.get("secret_key", settings.cloudstack_secret_key or ""),
-            zone_id=creds.get("zone_id", settings.cloudstack_zone_id),
+            api_url=creds.get("api_url", settings.opus_url or ""),
+            api_key=creds.get("api_key", settings.opus_api_key or ""),
+            secret_key=creds.get("secret_key", settings.opus_secret_key or ""),
+            zone_id=creds.get("zone_id", settings.opus_zone_id),
         )
 
     raise ValueError(f"Unsupported provider type: {provider_type}")

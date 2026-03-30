@@ -5,7 +5,7 @@ from pathlib import Path
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
@@ -14,6 +14,7 @@ from app.api.routes.providers import router as providers_router
 from app.api.routes.resources import router as resources_router
 from app.api.routes.migrations import router as migrations_router
 from app.api.routes.configuration import router as configuration_router
+from app.api.routes.configuration_new_providers import router as configuration_new_providers_router
 
 logger = structlog.get_logger(__name__)
 
@@ -35,7 +36,7 @@ app = FastAPI(
     title="anywhere2opus",
     version="1.0.0",
     description=(
-        "Cloud Migration API ??? connect to AWS, GCP, Azure, OCI, and CloudStack (Opus) "
+        "Cloud Migration API — connect to AWS, GCP, Azure, OCI, and Opus "
         "to discover, manage, and migrate cloud resources between providers."
     ),
     contact={
@@ -61,12 +62,20 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------------------
+BASE_PATH = "/connectors"
 API_PREFIX = "/api/v1"
+PUBLISHED_API_PREFIX = f"{BASE_PATH}{API_PREFIX}"
 
 app.include_router(providers_router, prefix=API_PREFIX)
 app.include_router(resources_router, prefix=API_PREFIX)
 app.include_router(migrations_router, prefix=API_PREFIX)
 app.include_router(configuration_router, prefix=API_PREFIX)
+app.include_router(configuration_new_providers_router, prefix=API_PREFIX)
+app.include_router(providers_router, prefix=PUBLISHED_API_PREFIX)
+app.include_router(resources_router, prefix=PUBLISHED_API_PREFIX)
+app.include_router(migrations_router, prefix=PUBLISHED_API_PREFIX)
+app.include_router(configuration_router, prefix=PUBLISHED_API_PREFIX)
+app.include_router(configuration_new_providers_router, prefix=PUBLISHED_API_PREFIX)
 
 # ---------------------------------------------------------------------------
 # Static Files
@@ -74,15 +83,29 @@ app.include_router(configuration_router, prefix=API_PREFIX)
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    app.mount(f"{BASE_PATH}/static", StaticFiles(directory=str(static_dir)), name="opus-static")
 
 
-@app.get("/", tags=["Web"], summary="CloudStack Configuration Interface")
-async def root():
-    """Serve the CloudStack configuration web interface"""
+def _serve_index():
     static_file = Path(__file__).parent / "static" / "index.html"
     if static_file.exists():
         return FileResponse(str(static_file), media_type="text/html")
     return {"message": "Configuration interface not available"}
+
+
+@app.get("/", tags=["Web"], summary="Empty root", status_code=204)
+async def root():
+    return Response(status_code=204)
+
+
+@app.get(BASE_PATH, tags=["Web"], summary="Published Opus Configuration Interface")
+async def opus_root():
+    return _serve_index()
+
+
+@app.get(f"{BASE_PATH}/", include_in_schema=False)
+async def opus_root_slash():
+    return _serve_index()
 
 
 # ---------------------------------------------------------------------------
