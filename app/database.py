@@ -53,7 +53,7 @@ def create_tables() -> None:
     # Extend existing PostgreSQL enum types with new values added to the
     # Python model.  ALTER TYPE ... ADD VALUE IF NOT EXISTS is idempotent and
     # safe to run on every startup.
-    _new_resource_type_values = ["KUBERNETES", "FILESTORE"]
+    _new_resource_type_values = ["KUBERNETES", "FILESTORE", "STORAGE_FLASH", "STORAGE_SAS"]
     with engine.connect() as conn:
         for val in _new_resource_type_values:
             try:

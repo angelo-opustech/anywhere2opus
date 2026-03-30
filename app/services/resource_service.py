@@ -103,18 +103,49 @@ class ResourceService:
             logger.error("sync_vms_error", provider_id=provider_id, error=str(e))
             summary["errors"].append({"type": "VM", "error": str(e)})
 
-        # Storage
+        # Storage — classified by disk_class in item specs
+        # flash (NVMe, >=20 VPUs)  →  STORAGE_FLASH
+        # sas  (balanced/lower, <20 VPUs)  →  STORAGE_SAS
+        # no disk_class (object storage, buckets)  →  STORAGE
         try:
             storages = client.list_storage(region=region)
-            storage_counts = self._upsert_resources(
+            flash_items = [
+                s for s in storages
+                if (s.get("specs") or {}).get("disk_class") == "flash"
+            ]
+            sas_items = [
+                s for s in storages
+                if (s.get("specs") or {}).get("disk_class") == "sas"
+            ]
+            obj_items = [
+                s for s in storages
+                if (s.get("specs") or {}).get("disk_class") not in ("flash", "sas")
+            ]
+            flash_counts = self._upsert_resources(
+                provider_id=provider_id,
+                resource_type=ResourceType.STORAGE_FLASH,
+                items=flash_items,
+            )
+            sas_counts = self._upsert_resources(
+                provider_id=provider_id,
+                resource_type=ResourceType.STORAGE_SAS,
+                items=sas_items,
+            )
+            obj_counts = self._upsert_resources(
                 provider_id=provider_id,
                 resource_type=ResourceType.STORAGE,
-                items=storages,
+                items=obj_items,
             )
-            summary["storage_created"] = storage_counts["created"]
-            summary["storage_updated"] = storage_counts["updated"]
-            summary["created"] += storage_counts["created"]
-            summary["updated"] += storage_counts["updated"]
+            summary["storage_flash_created"] = flash_counts["created"]
+            summary["storage_flash_updated"] = flash_counts["updated"]
+            summary["storage_sas_created"] = sas_counts["created"]
+            summary["storage_sas_updated"] = sas_counts["updated"]
+            summary["storage_obj_created"] = obj_counts["created"]
+            summary["storage_obj_updated"] = obj_counts["updated"]
+            total_created = flash_counts["created"] + sas_counts["created"] + obj_counts["created"]
+            total_updated = flash_counts["updated"] + sas_counts["updated"] + obj_counts["updated"]
+            summary["created"] += total_created
+            summary["updated"] += total_updated
         except Exception as e:
             logger.error("sync_storage_error", provider_id=provider_id, error=str(e))
             summary["errors"].append({"type": "STORAGE", "error": str(e)})

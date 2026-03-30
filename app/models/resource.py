@@ -10,7 +10,9 @@ from app.database import Base
 
 class ResourceType(str, enum.Enum):
     VM = "VM"
-    STORAGE = "STORAGE"
+    STORAGE = "STORAGE"          # generic / object storage
+    STORAGE_FLASH = "STORAGE_FLASH"  # NVMe / high-perf block (>=20 VPUs in OCI)
+    STORAGE_SAS = "STORAGE_SAS"      # balanced / lower-cost block (<20 VPUs in OCI)
     NETWORK = "NETWORK"
     DATABASE = "DATABASE"
     LOADBALANCER = "LOADBALANCER"
