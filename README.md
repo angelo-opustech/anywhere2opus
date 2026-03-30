@@ -73,6 +73,23 @@ python -c "from app.database import create_tables; create_tables()"
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+### GitHub-First Sync (Windows + AlmaLinux)
+
+After pushing a commit to GitHub, run this from Windows PowerShell to align the local clone and the AlmaLinux deployment to the repository state:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\sync-from-github.ps1
+```
+
+If either clone has local changes, the script stops to avoid discarding work. Use `-ForceReset` only when you intentionally want to throw away local changes and realign everything to GitHub.
+
+The script will:
+
+- fetch and hard-reset the Windows clone to `origin/HEAD`
+- fetch and hard-reset the AlmaLinux clone to the same branch
+- restart the `anywhere2opus` service in AlmaLinux
+- validate `http://localhost:8000/connectors`
+
 ## 🔧 Configuration
 
 ### Environment Variables
