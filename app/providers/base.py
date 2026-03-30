@@ -78,3 +78,11 @@ class BaseProvider(ABC):
     def list_databases(self, region: Optional[str] = None) -> List[Dict[str, Any]]:
         """List all managed database services.  Override in providers that support them."""
         return []
+
+    def list_file_storage(self, region: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List all NFS / file storage services.  Override in providers that support them."""
+        return []
+
+    def list_kubernetes(self, region: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List all Kubernetes / container clusters.  Override in providers that support them."""
+        return []

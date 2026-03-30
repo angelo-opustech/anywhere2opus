@@ -167,6 +167,38 @@ class ResourceService:
             logger.error("sync_databases_error", provider_id=provider_id, error=str(e))
             summary["errors"].append({"type": "DATABASE", "error": str(e)})
 
+        # File Storage (NFS)
+        try:
+            file_stores = client.list_file_storage(region=region)
+            fs_counts = self._upsert_resources(
+                provider_id=provider_id,
+                resource_type=ResourceType.FILESTORE,
+                items=file_stores,
+            )
+            summary["filestorage_created"] = fs_counts["created"]
+            summary["filestorage_updated"] = fs_counts["updated"]
+            summary["created"] += fs_counts["created"]
+            summary["updated"] += fs_counts["updated"]
+        except Exception as e:
+            logger.error("sync_filestorage_error", provider_id=provider_id, error=str(e))
+            summary["errors"].append({"type": "FILESTORE", "error": str(e)})
+
+        # Kubernetes / Container Engine
+        try:
+            clusters = client.list_kubernetes(region=region)
+            k8s_counts = self._upsert_resources(
+                provider_id=provider_id,
+                resource_type=ResourceType.KUBERNETES,
+                items=clusters,
+            )
+            summary["kubernetes_created"] = k8s_counts["created"]
+            summary["kubernetes_updated"] = k8s_counts["updated"]
+            summary["created"] += k8s_counts["created"]
+            summary["updated"] += k8s_counts["updated"]
+        except Exception as e:
+            logger.error("sync_kubernetes_error", provider_id=provider_id, error=str(e))
+            summary["errors"].append({"type": "KUBERNETES", "error": str(e)})
+
         logger.info("sync_completed", **summary)
         return summary
 

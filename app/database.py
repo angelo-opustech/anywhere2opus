@@ -1,5 +1,5 @@
 from typing import Generator
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase
 from sqlalchemy.pool import QueuePool
 import structlog
@@ -50,6 +50,25 @@ def get_db() -> Generator[Session, None, None]:
 
 def create_tables() -> None:
     """Create all tables in the database. Used for initial setup or testing."""
+    # Extend existing PostgreSQL enum types with new values added to the
+    # Python model.  ALTER TYPE ... ADD VALUE IF NOT EXISTS is idempotent and
+    # safe to run on every startup.
+    _new_resource_type_values = ["KUBERNETES", "FILESTORE"]
+    with engine.connect() as conn:
+        for val in _new_resource_type_values:
+            try:
+                conn.execute(
+                    text(f"ALTER TYPE resourcetype ADD VALUE IF NOT EXISTS '{val}'")
+                )
+                conn.commit()
+            except Exception as exc:
+                conn.rollback()
+                logger.warning(
+                    "db_enum_extend_skipped",
+                    enum="resourcetype",
+                    value=val,
+                    reason=str(exc),
+                )
     Base.metadata.create_all(bind=engine)
 
 

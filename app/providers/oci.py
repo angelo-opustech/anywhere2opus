@@ -651,6 +651,207 @@ class OCIProvider(BaseProvider):
             raise RuntimeError(f"OCI list_databases failed: {e}") from e
         return databases
 
+    def list_file_storage(self, region: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List OCI File Storage NFS file systems and their mount targets."""
+        import oci
+        from oci.file_storage import FileStorageClient
+        from oci.identity import IdentityClient
+
+        fs_client = FileStorageClient(self._config)
+        identity = IdentityClient(self._config)
+        result: List[Dict[str, Any]] = []
+        try:
+            ads = oci.pagination.list_call_get_all_results(
+                identity.list_availability_domains,
+                compartment_id=self.compartment_id,
+            ).data
+
+            for ad in ads:
+                file_systems = oci.pagination.list_call_get_all_results(
+                    fs_client.list_file_systems,
+                    compartment_id=self.compartment_id,
+                    availability_domain=ad.name,
+                ).data
+
+                for fs in file_systems:
+                    # Mount targets for this file system
+                    mount_targets = oci.pagination.list_call_get_all_results(
+                        fs_client.list_mount_targets,
+                        compartment_id=self.compartment_id,
+                        availability_domain=ad.name,
+                    ).data
+                    # Filter to only those associated with this file system
+                    mt_list = []
+                    for mt in mount_targets:
+                        export_sets = []
+                        if mt.export_set_id:
+                            try:
+                                es = fs_client.get_export_set(
+                                    export_set_id=mt.export_set_id
+                                ).data
+                                # Only include exports belonging to this FS
+                                exports = oci.pagination.list_call_get_all_results(
+                                    fs_client.list_exports,
+                                    export_set_id=mt.export_set_id,
+                                    file_system_id=fs.id,
+                                ).data
+                                export_sets = [
+                                    {
+                                        "path": exp.path,
+                                        "lifecycle_state": exp.lifecycle_state,
+                                    }
+                                    for exp in exports
+                                ]
+                            except Exception:
+                                pass
+                        if export_sets:
+                            mt_list.append(
+                                {
+                                    "id": mt.id,
+                                    "name": mt.display_name,
+                                    "private_ip_ids": mt.private_ip_ids or [],
+                                    "subnet_id": mt.subnet_id,
+                                    "lifecycle_state": mt.lifecycle_state,
+                                    "exports": export_sets,
+                                }
+                            )
+
+                    result.append(
+                        {
+                            "id": fs.id,
+                            "name": fs.display_name,
+                            "size_gb": None,  # OCI reports metered usage, not a fixed size
+                            "region": self.region,
+                            "type": "FileSystem",
+                            "specs": {
+                                "disk_class": "flash",  # OCI File Storage is NVMe-backed
+                                "availability_domain": ad.name,
+                                "metered_bytes": fs.metered_bytes,
+                                "lifecycle_state": fs.lifecycle_state,
+                                "time_created": (
+                                    fs.time_created.isoformat()
+                                    if fs.time_created
+                                    else None
+                                ),
+                                "mount_targets": mt_list,
+                                "freeform_tags": fs.freeform_tags or {},
+                            },
+                        }
+                    )
+        except Exception as e:
+            logger.error("oci_list_file_storage_error", error=str(e))
+            raise RuntimeError(f"OCI list_file_storage failed: {e}") from e
+        return result
+
+    def list_kubernetes(self, region: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List OCI Container Engine (OKE) Kubernetes clusters with node pools."""
+        import oci
+        from oci.container_engine import ContainerEngineClient
+
+        client = ContainerEngineClient(self._config)
+        clusters: List[Dict[str, Any]] = []
+        try:
+            all_clusters = oci.pagination.list_call_get_all_results(
+                client.list_clusters,
+                compartment_id=self.compartment_id,
+            ).data
+
+            for cluster in all_clusters:
+                node_pools = oci.pagination.list_call_get_all_results(
+                    client.list_node_pools,
+                    compartment_id=self.compartment_id,
+                    cluster_id=cluster.id,
+                ).data
+
+                np_list = []
+                total_ocpus = 0
+                total_memory_gb = 0.0
+                flash_disks_summary: List[Dict] = []
+                sas_disks_summary: List[Dict] = []
+
+                for np in node_pools:
+                    node_shape_config = np.node_shape_config
+                    ocpus = (
+                        node_shape_config.ocpus if node_shape_config else None
+                    )
+                    memory_gb = (
+                        node_shape_config.memory_in_gbs if node_shape_config else None
+                    )
+                    node_count = np.node_config_details.size if np.node_config_details else 0
+
+                    # Boot volume classification
+                    boot_size = None
+                    disk_class = "sas"
+                    if np.node_source_details:
+                        src = np.node_source_details
+                        boot_size = getattr(src, "boot_volume_size_in_gbs", None)
+                        # HigherPerf boot → flash
+                        vpus = getattr(src, "boot_volume_vpus_per_gb", 10)
+                        disk_class = "flash" if vpus >= 20 else "sas"
+
+                    if ocpus and node_count:
+                        total_ocpus += ocpus * node_count
+                    if memory_gb and node_count:
+                        total_memory_gb += memory_gb * node_count
+
+                    disk_entry = {
+                        "source": "boot_volume",
+                        "size_gb": boot_size,
+                        "disk_class": disk_class,
+                        "node_count": node_count,
+                    }
+                    if disk_class == "flash":
+                        flash_disks_summary.append(disk_entry)
+                    else:
+                        sas_disks_summary.append(disk_entry)
+
+                    np_list.append(
+                        {
+                            "id": np.id,
+                            "name": np.name,
+                            "shape": np.node_shape,
+                            "ocpus_per_node": ocpus,
+                            "memory_gb_per_node": memory_gb,
+                            "node_count": node_count,
+                            "boot_volume_size_gb": boot_size,
+                            "disk_class": disk_class,
+                            "kubernetes_version": np.kubernetes_version,
+                            "lifecycle_state": np.lifecycle_state,
+                        }
+                    )
+
+                clusters.append(
+                    {
+                        "id": cluster.id,
+                        "name": cluster.name,
+                        "status": (
+                            cluster.lifecycle_state.lower()
+                            if cluster.lifecycle_state
+                            else "unknown"
+                        ),
+                        "region": self.region,
+                        "specs": {
+                            "kubernetes_version": cluster.kubernetes_version,
+                            "vcn_id": cluster.vcn_id,
+                            "total_ocpus": total_ocpus,
+                            "total_memory_gb": total_memory_gb,
+                            "flash_disks": flash_disks_summary,
+                            "sas_disks": sas_disks_summary,
+                            "node_pools": np_list,
+                            "endpoint": (
+                                cluster.endpoints.public_endpoint
+                                if cluster.endpoints
+                                else None
+                            ),
+                            "freeform_tags": cluster.freeform_tags or {},
+                        },
+                    }
+                )
+        except Exception as e:
+            logger.error("oci_list_kubernetes_error", error=str(e))
+            raise RuntimeError(f"OCI list_kubernetes failed: {e}") from e
+        return clusters
+
     def list_buckets(self) -> List[Dict[str, Any]]:
         from oci.object_storage import ObjectStorageClient
         buckets = []

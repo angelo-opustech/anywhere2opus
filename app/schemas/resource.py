@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, Any, Dict, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 import json
 
 from app.models.resource import ResourceType, ResourceStatus
@@ -49,6 +49,7 @@ class CloudResourceRead(CloudResourceBase):
 
     model_config = {"from_attributes": True}
 
+    @computed_field
     @property
     def specs(self) -> Optional[Dict[str, Any]]:
         if self.specs_json is None:

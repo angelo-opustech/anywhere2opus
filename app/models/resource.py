@@ -14,6 +14,8 @@ class ResourceType(str, enum.Enum):
     NETWORK = "NETWORK"
     DATABASE = "DATABASE"
     LOADBALANCER = "LOADBALANCER"
+    KUBERNETES = "KUBERNETES"
+    FILESTORE = "FILESTORE"
 
 
 class ResourceStatus(str, enum.Enum):
