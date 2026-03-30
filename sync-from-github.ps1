@@ -32,7 +32,9 @@ function Invoke-WslBash {
         [string]$Command
     )
 
-    & wsl -d $Distro -- bash -lc $Command
+    $normalizedCommand = $Command -replace "`r", ""
+
+    & wsl -d $Distro -- bash -lc $normalizedCommand
     if ($LASTEXITCODE -ne 0) {
         throw "WSL command failed in distro $Distro"
     }
