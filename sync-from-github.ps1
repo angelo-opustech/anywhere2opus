@@ -175,7 +175,7 @@ if ($shouldRestartService) {
     $serviceCommand = New-BashCommand -Lines @(
         "set -e",
         "systemctl restart $ServiceName",
-        "for attempt in `$(seq 1 30); do",
+        "for attempt in {1..30}; do",
         "  systemctl is-active --quiet $ServiceName || exit 1",
         "  curl -fsS http://127.0.0.1:8000/connectors >/dev/null && exit 0",
         "  sleep 1",
