@@ -207,6 +207,19 @@ class OCIProvider(BaseProvider):
                     else:
                         sas_disks.append(record)
 
+                # vCPU calculation:
+                # Ampere A1 shapes → 1 OCPU = 1 vCPU
+                # Intel/AMD x86    → 1 OCPU = 2 vCPUs (Hyper-Threading)
+                _shape_name = inst.shape or ""
+                _proc = (sc.processor_description if sc else None) or ""
+                _is_ampere = "A1." in _shape_name or "Ampere" in _proc
+                _ocpus = sc.ocpus if sc else None
+                _vcpus = (
+                    int(_ocpus) if (_ocpus is not None and _is_ampere)
+                    else int(_ocpus * 2) if _ocpus is not None
+                    else None
+                )
+
                 vms.append(
                     {
                         "id": inst.id,
@@ -219,11 +232,10 @@ class OCIProvider(BaseProvider):
                         "region": inst.region,
                         "specs": {
                             "shape": inst.shape,
-                            # 1 OCPU = 2 vCPUs (HT) on x86 Intel/AMD shapes;
-                            # on Ampere A1 shapes ocpus == vcpus directly.
-                            "ocpus": sc.ocpus if sc else None,
+                            "ocpus": _ocpus,
+                            "vcpus": _vcpus,
                             "memory_gb": sc.memory_in_gbs if sc else None,
-                            "processor": sc.processor_description if sc else None,
+                            "processor": _proc or None,
                             "networking_gbps": (
                                 sc.networking_bandwidth_in_gbps if sc else None
                             ),

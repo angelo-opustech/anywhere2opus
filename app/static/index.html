@@ -1476,29 +1476,45 @@
     function renderOciVMs(items) {
         if (!items.length) return emptyTable('Nenhuma instância Compute encontrada.');
         return '<table class="res-table"><thead><tr>' +
-            '<th>Nome</th><th>Status</th><th>Shape</th><th>OCPUs</th><th>RAM (GB)</th>' +
-            '<th>Flash</th><th>SAS</th><th>IP Privado</th><th>AD</th>' +
+            '<th>Nome</th><th>Status</th><th>Processador</th><th>vCPUs</th><th>RAM</th>' +
+            '<th>Discos Flash</th><th>Discos SAS</th><th>IP Privado</th><th>AD</th>' +
             '</tr></thead><tbody>' +
             items.map(function(item) {
                 var s = item.specs || {};
                 var flash = s.flash_disks || [];
                 var sas   = s.sas_disks   || [];
-                var flashSummary = flash.length
-                    ? flash.map(function(d) { return (d.count || 1) + '×' + (d.total_size_gb || d.size_gb || '?') + 'GB'; }).join(', ')
-                    : '-';
-                var sasSummary = sas.length
-                    ? sas.map(function(d) { return '1×' + (d.size_gb || '?') + 'GB'; }).join(', ')
-                    : '-';
+
+                // vCPUs: use pre-computed value from backend (Ampere=1:1, x86=2:1)
+                var vcpuDisplay = s.vcpus != null ? String(s.vcpus)
+                    : (s.ocpus != null ? String(s.ocpus) + ' OCPUs' : '-');
+
+                // Processor: shorten to vendor + GHz (strip trailing shape detail)
+                var proc = s.processor || s.shape || '-';
+                var procShort = proc.replace(/^(\d+\.\d+ GHz [^\s]+ [^\s]+).*$/, '$1');
+
+                // Flash disks: one line per entry — NVMe shows count×total, Block shows name+size
+                function diskLines(disks) {
+                    if (!disks.length) return '<span class="text-muted">—</span>';
+                    return disks.map(function(d) {
+                        if (d.source === 'local_nvme') {
+                            return '<span class="pill pill-green">NVMe</span> ' +
+                                escapeHtml((d.count || 1) + '×' + (d.total_size_gb || '?') + ' GB');
+                        }
+                        return '<span class="pill pill-blue">' + escapeHtml(d.disk_class === 'flash' ? 'Flash' : 'SAS') + '</span> ' +
+                            escapeHtml((d.name ? d.name + ' ' : '') + (d.size_gb || '?') + ' GB');
+                    }).join('<br>');
+                }
+
                 var primaryVnic = (s.network && s.network.vnics || []).find(function(v) { return v.is_primary; }) || (s.network && s.network.vnics || [])[0];
                 var ip = primaryVnic ? (primaryVnic.private_ip || '-') : '-';
                 return '<tr>' +
                     '<td><span class="resource-name">' + statusDot(item.status) + escapeHtml(item.name || '-') + '</span></td>' +
                     '<td>' + statusPill(item.status) + '</td>' +
-                    '<td class="text-small">' + escapeHtml(s.shape || '-') + '</td>' +
-                    '<td>' + escapeHtml(s.ocpus != null ? String(s.ocpus) : '-') + '</td>' +
+                    '<td class="text-small">' + escapeHtml(procShort) + '</td>' +
+                    '<td><strong>' + escapeHtml(vcpuDisplay) + '</strong></td>' +
                     '<td>' + escapeHtml(s.memory_gb != null ? String(s.memory_gb) + ' GB' : '-') + '</td>' +
-                    '<td class="text-small">' + escapeHtml(flashSummary) + '</td>' +
-                    '<td class="text-small">' + escapeHtml(sasSummary) + '</td>' +
+                    '<td class="text-small">' + diskLines(flash) + '</td>' +
+                    '<td class="text-small">' + diskLines(sas) + '</td>' +
                     '<td class="mono">' + escapeHtml(ip) + '</td>' +
                     '<td class="text-small text-muted">' + escapeHtml(s.availability_domain || item.region || '-') + '</td>' +
                 '</tr>';
