@@ -832,9 +832,21 @@
         const sel = document.getElementById('clientSelect');
         sel.innerHTML = '<option value="">Selecione um cliente...</option>' +
             clients.map((c) => '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>').join('');
+
+        if (!clients.length) {
+            activeClientId = null;
+            activeClientName = '';
+            updateMainArea();
+            return;
+        }
+
+        const selectedClient = clients.find((client) => client.id === activeClientId) || clients[0];
+        activeClientId = selectedClient.id;
+        activeClientName = selectedClient.name;
         if (activeClientId) {
             sel.value = String(activeClientId);
         }
+        updateMainArea();
     }
 
     function onClientSelectChange(value) {

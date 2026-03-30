@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.client import ClientCreate, ClientList, ClientRead, ClientUpdate
-from app.services.client_service import ClientService
+from app.services.client_service import ClientService, DuplicateClientNameError
 
 router = APIRouter(prefix="/clients", tags=["Clients"])
 
@@ -25,8 +25,11 @@ def list_clients(
 @router.post("", response_model=ClientRead, status_code=status.HTTP_201_CREATED,
              summary="Create a client")
 def create_client(payload: ClientCreate, svc: ClientService = Depends(_svc)):
-    client = svc.create_client(payload)
-    return ClientRead.model_validate(client)
+    try:
+        client = svc.create_client(payload)
+        return ClientRead.model_validate(client)
+    except DuplicateClientNameError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
 @router.get("/{client_id}", response_model=ClientRead, summary="Get a client by ID")
@@ -41,6 +44,8 @@ def get_client(client_id: int, svc: ClientService = Depends(_svc)):
 def update_client(client_id: int, payload: ClientUpdate, svc: ClientService = Depends(_svc)):
     try:
         return ClientRead.model_validate(svc.update_client(client_id, payload))
+    except DuplicateClientNameError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
