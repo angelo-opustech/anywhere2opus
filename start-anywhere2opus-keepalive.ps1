@@ -65,6 +65,16 @@ if ($RestartService) {
 }
 
 $processes = @(Get-KeepaliveProcesses)
+if ($processes.Count -gt 1) {
+    $processes = @($processes | Sort-Object ProcessId)
+    foreach ($process in ($processes | Select-Object -Skip 1)) {
+        Stop-Process -Id $process.ProcessId -Force
+    }
+
+    Start-Sleep -Seconds 1
+    $processes = @(Get-KeepaliveProcesses)
+}
+
 if ($processes.Count -eq 0) {
     $linuxCommand = "export ANYWHERE2OPUS_KEEPALIVE=1; systemctl start $ServiceName; while true; do sleep 300; done"
     $startedProcess = Start-Process -FilePath "wsl.exe" -ArgumentList @("-d", $Distro, "--", "bash", "-lc", $linuxCommand) -WindowStyle Hidden -PassThru
